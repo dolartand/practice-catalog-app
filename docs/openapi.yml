@@ -1,0 +1,1832 @@
+openapi: 3.1.0
+info:
+  title: Practice Catalog API
+  description: |
+    Бэкенд мобильного каталога товаров (Добрушский фарфоровый завод).
+
+    Соглашения:
+    - Деньги — целые копейки (BYN), `integer`/`int64`.
+    - Даты и время — ISO-8601, UTC (`2026-08-17T12:00:00Z`).
+    - Ошибки — единый формат RFC 9457 Problem Details (схема `ProblemDetails`).
+    - Пагинация — `page` (0-based) + `size` (по умолчанию 20, максимум 100); конверт `{items, page, size, total, totalPages}`.
+    - Идемпотентность запросов, меняющих состояние, — заголовок `X-Request-Id`.
+
+    Подробнее: [03-api-design.md](03-api-design.md), [02-domain-model.md](02-domain-model.md).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Локальная разработка
+tags:
+  - name: Auth
+    description: Регистрация, вход, токены, профиль
+  - name: Catalog
+    description: "Публичный каталог: категории, товары, карточки, отзывы"
+  - name: Cart
+    description: Корзина пользователя
+  - name: Orders
+    description: Заказы пользователя
+  - name: Favorites
+    description: Избранное пользователя
+  - name: Reviews
+    description: Отзывы пользователя
+  - name: Admin
+    description: Администрирование каталога, заказов, отзывов
+security:
+  - BearerAuth: []
+paths:
+  /api/v1/categories:
+    get:
+      tags: [Catalog]
+      summary: Дерево категорий
+      description: Возвращает активные категории с вложенными подкатегориями.
+      security: []
+      responses:
+        "200":
+          description: Дерево категорий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryNode"
+              examples:
+                tree:
+                  value:
+                    - id: a1b2c3d4-1111-4c1e-9f2c-000000000001
+                      name: Сервизы
+                      slug: servizy
+                      imageUrl: http://localhost:8080/catalog-images/categories/1a2b.jpg
+                      sortOrder: 1
+                      children:
+                        - id: a1b2c3d4-1111-4c1e-9f2c-000000000002
+                          name: Чайные сервизы
+                          slug: chainye-servizy
+                          imageUrl: null
+                          sortOrder: 1
+                          children: []
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/products:
+    get:
+      tags: [Catalog]
+      summary: Поиск и список товаров
+      description: |
+        Поиск с фильтрами, сортировкой и пагинацией. Фильтры `inStock` и `onlyDiscounted`
+        выполняются напрямую к БД (без кэша) и требуют актуальных остатков.
+      security: []
+      parameters:
+        - name: q
+          in: query
+          description: Поиск по названию, артикулу, серии
+          schema: { type: string, maxLength: 200 }
+        - name: categoryId
+          in: query
+          description: Идентификатор категории (включает подкатегории)
+          schema: { type: string, format: uuid }
+        - name: priceFrom
+          in: query
+          description: Минимальная цена со скидкой, копейки
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: priceTo
+          in: query
+          description: Максимальная цена со скидкой, копейки
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: series
+          in: query
+          description: Серия/коллекция
+          schema: { type: string, maxLength: 200 }
+        - name: type
+          in: query
+          description: Тип изделия (сервиз, чашка, ваза, статуэтка...)
+          schema: { type: string, maxLength: 100 }
+        - name: inStock
+          in: query
+          description: Только товары с остатком больше 0
+          schema: { type: boolean }
+        - name: onlyDiscounted
+          in: query
+          description: Только товары со скидкой
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          description: Сортировка
+          schema:
+            type: string
+            enum: [price_asc, price_desc, rating_desc, newest, discount_desc]
+            default: newest
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница товаров
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductsPage"
+              examples:
+                page:
+                  $ref: "#/components/examples/ProductsPageExample"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/products/{id}:
+    get:
+      tags: [Catalog]
+      summary: Карточка товара
+      description: "Полные данные товара: характеристики, изображения, SKU с остатками, рейтинг."
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Карточка товара
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+              examples:
+                card:
+                  $ref: "#/components/examples/ProductResponseExample"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/products/{id}/reviews:
+    get:
+      tags: [Catalog]
+      summary: Отзывы товара
+      description: Список опубликованных (одобренных модерацией) отзывов, сортировка по новизне.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница отзывов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewsPage"
+              examples:
+                page:
+                  value:
+                    items:
+                      - id: r1
+                        userFirstName: Анна
+                        rating: 5
+                        text: Красивая роспись, доставка быстрая.
+                        createdAt: "2026-08-15T10:00:00Z"
+                    page: 0
+                    size: 20
+                    total: 1
+                    totalPages: 1
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Reviews]
+      summary: Оставить отзыв
+      description: |
+        Только покупатель товара (наличие заказа со статусом DELIVERED).
+        Один отзыв на товар. Опубликован после модерации.
+      operationId: createReview
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+            examples:
+              create:
+                value: { rating: 5, text: "Красивая роспись, доставка быстрая." }
+      responses:
+        "201":
+          description: Отзыв создан (ожидает модерации)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+              examples:
+                created:
+                  value:
+                    id: r1
+                    userFirstName: Анна
+                    rating: 5
+                    text: "Красивая роспись, доставка быстрая."
+                    isModerated: false
+                    createdAt: "2026-08-17T12:15:00Z"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Регистрация
+      description: Создаёт пользователя с ролью USER и сразу выдаёт пару токенов.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              register:
+                value:
+                  email: ivan@example.com
+                  password: "StrongPass123"
+                  firstName: Иван
+                  lastName: Иванов
+                  phone: "+375291234567"
+      responses:
+        "201":
+          description: Пользователь создан, пара токенов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              examples:
+                tokens:
+                  $ref: "#/components/examples/TokenResponseExample"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Вход
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            examples:
+              login:
+                value: { email: ivan@example.com, password: "StrongPass123" }
+      responses:
+        "200":
+          description: Пара токенов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              examples:
+                tokens:
+                  $ref: "#/components/examples/TokenResponseExample"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Ротация refresh-токена
+      description: |
+        Принимает refresh-токен (в теле), отзывает старый и выдаёт новую пару.
+        Повторное использование отозванного токена отзывает все refresh-токены пользователя.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+            examples:
+              refresh:
+                value: { refreshToken: "eyJhbGciOiJIUzI1NiIs..." }
+      responses:
+        "200":
+          description: Новая пара токенов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Выход
+      description: Отзывает текущий refresh-токен пользователя.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Токен отозван
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Выход со всех устройств
+      description: Отзывает все refresh-токены пользователя.
+      responses:
+        "204":
+          description: Все токены отозваны
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Смена пароля
+      description: |
+        Требует текущий пароль и новый пароль (введённый дважды).
+        При успехе все refresh-токены пользователя отзываются.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+            examples:
+              change:
+                value:
+                  currentPassword: "OldPass123"
+                  newPassword: "NewPass456"
+                  newPasswordConfirm: "NewPass456"
+      responses:
+        "204":
+          description: Пароль изменён
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleError"
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Профиль текущего пользователя
+      responses:
+        "200":
+          description: Профиль
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+              examples:
+                profile:
+                  value:
+                    id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    email: ivan@example.com
+                    firstName: Иван
+                    lastName: Иванов
+                    phone: "+375291234567"
+                    role: USER
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/cart:
+    get:
+      tags: [Cart]
+      summary: Содержимое корзины
+      description: |
+        Цены пересчитываются из актуальных данных каталога.
+        Недоступные позиции (неактивный товар/SKU, превышение остатка) помечаются unavailable.
+      responses:
+        "200":
+          description: Корзина
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+              examples:
+                cart:
+                  $ref: "#/components/examples/CartResponseExample"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/cart/items:
+    post:
+      tags: [Cart]
+      summary: Добавить позицию
+      description: Повторное добавление того же SKU увеличивает количество.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCartItemRequest"
+            examples:
+              add:
+                value: { skuId: s1, quantity: 2 }
+      responses:
+        "201":
+          description: Позиция добавлена (обновлённая корзина)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleError"
+  /api/v1/cart/items/{id}:
+    patch:
+      tags: [Cart]
+      summary: Изменить количество
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCartItemRequest"
+            examples:
+              update:
+                value: { quantity: 3 }
+      responses:
+        "200":
+          description: Обновлённая корзина
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessRuleError"
+    delete:
+      tags: [Cart]
+      summary: Удалить позицию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Позиция удалена
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/orders:
+    get:
+      tags: [Orders]
+      summary: История заказов
+      description: Заказы текущего пользователя, сортировка по дате создания.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница заказов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrdersPage"
+              examples:
+                page:
+                  value:
+                    items:
+                      - id: 9f2c8d1e-4b3a-4c1e-9f2c-000000000001
+                        number: ORD-2026-000123
+                        status: NEW
+                        itemsTotalCents: 102000
+                        deliveryCents: 0
+                        totalCents: 102000
+                        createdAt: "2026-08-17T12:00:00Z"
+                    page: 0
+                    size: 20
+                    total: 1
+                    totalPages: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Orders]
+      summary: Оформить заказ
+      description: |
+        Оформляет заказ из корзины одной транзакцией: списание остатков, создание
+        снимков товаров, очистка корзины. Доставка в v1 бесплатная.
+        Повторный запрос с тем же `X-Request-Id` не создаёт второй заказ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+            examples:
+              create:
+                value:
+                  customerName: Иванов Иван
+                  customerPhone: "+375291234567"
+                  deliveryCity: Добруш
+                  deliveryAddress: "ул. Советская, 1"
+                  comment: "Позвонить за час до доставки"
+      responses:
+        "201":
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+              examples:
+                created:
+                  $ref: "#/components/examples/OrderResponseExample"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/BusinessRuleError"
+  /api/v1/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Детали заказа
+      description: Доступен только владельцу заказа.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Заказ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+              examples:
+                order:
+                  $ref: "#/components/examples/OrderResponseExample"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Отменить заказ
+      description: Отмена возможна только в статусе NEW; остатки возвращаются.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Заказ отменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/favorites:
+    get:
+      tags: [Favorites]
+      summary: Избранное
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница товаров в избранном
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoritesPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/favorites/{productId}:
+    put:
+      tags: [Favorites]
+      summary: Добавить в избранное
+      description: Идемпотентная операция.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Товар в избранном
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Favorites]
+      summary: Удалить из избранного
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Товар удалён из избранного
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/reviews/{id}:
+    patch:
+      tags: [Reviews]
+      summary: Изменить свой отзыв
+      description: Допускается только владельцем отзыва.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReviewRequest"
+            examples:
+              update:
+                value: { rating: 4, text: "После использования — отличный сервиз." }
+      responses:
+        "200":
+          description: Обновлённый отзыв
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Reviews]
+      summary: Удалить свой отзыв
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Отзыв удалён
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/categories:
+    post:
+      tags: [Admin]
+      summary: Создать категорию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+            examples:
+              create:
+                value:
+                  name: Чайные сервизы
+                  slug: chainye-servizy
+                  parentId: a1b2c3d4-1111-4c1e-9f2c-000000000001
+                  description: Сервизы для чая
+                  imageUrl: null
+                  sortOrder: 1
+      responses:
+        "201":
+          description: Категория создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryNode"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/admin/categories/{id}:
+    patch:
+      tags: [Admin]
+      summary: Обновить категорию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+      responses:
+        "200":
+          description: Обновлённая категория
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryNode"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Admin]
+      summary: Удалить категорию (soft delete)
+      description: Запрещено, если есть активные товары или подкатегории.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Категория удалена
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/admin/products:
+    post:
+      tags: [Admin]
+      summary: Создать товар
+      description: Цена со скидкой вычисляется автоматически.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+            examples:
+              create:
+                value:
+                  categoryId: a1b2c3d4-1111-4c1e-9f2c-000000000002
+                  name: "Чайный сервиз «Славянский» на 6 персон"
+                  article: CS-1001
+                  description: Классический чайный сервиз из твёрдого фарфора
+                  series: Славянский
+                  productType: сервиз
+                  decor: синий кобальт
+                  material: твёрдый фарфор
+                  capacityMl: 220
+                  weightG: 3400
+                  dimensions: "310x210x180 мм"
+                  countryOfOrigin: Беларусь
+                  barcode: "4810123000014"
+                  priceCents: 120000
+                  discountPercent: 15
+                  isActive: true
+      responses:
+        "201":
+          description: Товар создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/admin/products/{id}:
+    patch:
+      tags: [Admin]
+      summary: Обновить товар
+      description: Частичное обновление; пересчёт цены со скидкой; событие product.updated.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdateRequest"
+      responses:
+        "200":
+          description: Обновлённый товар
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Admin]
+      summary: Удалить товар (soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Товар удалён
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/products/{id}/skus:
+    post:
+      tags: [Admin]
+      summary: Создать вариант товара (SKU)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkuRequest"
+            examples:
+              create:
+                value:
+                  name: На 6 персон
+                  article: CS-1001-6
+                  priceCents: 120000
+                  discountPercent: 15
+                  stockQty: 14
+      responses:
+        "201":
+          description: SKU создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkuResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/admin/skus/{id}:
+    patch:
+      tags: [Admin]
+      summary: Обновить SKU (цена, скидка, остаток)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkuUpdateRequest"
+            examples:
+              update:
+                value: { priceCents: 115000, discountPercent: 10, stockQty: 20 }
+      responses:
+        "200":
+          description: Обновлённый SKU
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkuResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Admin]
+      summary: Деактивировать SKU
+      description: SKU деактивируется (не удаляется); товар без активных SKU не продаётся.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: SKU деактивирован
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/products/{id}/images:
+    post:
+      tags: [Admin]
+      summary: Загрузить изображение товара
+      description: |
+        Multipart-загрузка. Форматы JPEG/PNG/WebP, до 10 МБ.
+        Первое загруженное изображение автоматически становится главным.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл изображения (JPEG/PNG/WebP, до 10 МБ)
+                position:
+                  type: integer
+                  minimum: 0
+                  description: Порядковый номер (по умолчанию — конец)
+                isMain:
+                  type: boolean
+                  description: Сделать главным изображением
+            required: [file]
+      responses:
+        "201":
+          description: Изображение загружено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/images/{id}:
+    patch:
+      tags: [Admin]
+      summary: Изменить позицию/главное изображение
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImagePositionRequest"
+            examples:
+              setMain:
+                value: { position: 0, isMain: true }
+      responses:
+        "200":
+          description: Изображение обновлено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImageResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Admin]
+      summary: Удалить изображение
+      description: Удаляет запись и объект из MinIO.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Изображение удалено
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/orders:
+    get:
+      tags: [Admin]
+      summary: Все заказы
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу
+          schema:
+            type: string
+            enum: [NEW, CONFIRMED, DELIVERED, CANCELLED]
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница заказов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrdersPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/orders/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Сменить статус заказа
+      description: |
+        Только допустимые переходы: NEW→CONFIRMED, NEW→CANCELLED,
+        CONFIRMED→DELIVERED, CONFIRMED→CANCELLED. Отмена возвращает остатки.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdateRequest"
+            examples:
+              confirm:
+                value: { status: CONFIRMED }
+      responses:
+        "200":
+          description: Статус изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/admin/reviews:
+    get:
+      tags: [Admin]
+      summary: Все отзывы
+      parameters:
+        - name: isModerated
+          in: query
+          description: Фильтр по модерации
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница отзывов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewsPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/reviews/{id}/moderation:
+    patch:
+      tags: [Admin]
+      summary: Одобрить/скрыть отзыв
+      description: Скрытый отзыв не виден публично и не учитывается в рейтинге.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewModerationRequest"
+            examples:
+              approve:
+                value: { isModerated: true }
+      responses:
+        "200":
+          description: Статус модерации обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access-токен, выданный через /api/v1/auth/login или /api/v1/auth/refresh
+  examples:
+    TokenResponseExample:
+      value:
+        accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresIn: 900
+        refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshExpiresIn: 2592000
+    ProductsPageExample:
+      value:
+        items:
+          - id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            name: "Чайный сервиз «Славянский» на 6 персон"
+            article: CS-1001
+            series: Славянский
+            productType: сервиз
+            priceCents: 120000
+            discountPercent: 15
+            priceWithDiscountCents: 102000
+            mainImageUrl: http://localhost:8080/catalog-images/products/7c9e.../main.jpg
+            ratingAverage: 4.8
+            ratingCount: 23
+            inStock: true
+        page: 0
+        size: 10
+        total: 5
+        totalPages: 1
+    ProductResponseExample:
+      value:
+        id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        categoryId: a1b2c3d4-1111-4c1e-9f2c-000000000002
+        name: "Чайный сервиз «Славянский» на 6 персон"
+        article: CS-1001
+        description: Классический чайный сервиз из твёрдого фарфора
+        series: Славянский
+        productType: сервиз
+        decor: синий кобальт
+        material: твёрдый фарфор
+        capacityMl: 220
+        weightG: 3400
+        dimensions: "310x210x180 мм"
+        countryOfOrigin: Беларусь
+        barcode: "4810123000014"
+        priceCents: 120000
+        discountPercent: 15
+        priceWithDiscountCents: 102000
+        ratingAverage: 4.8
+        ratingCount: 23
+        images:
+          - id: i1
+            url: http://localhost:8080/catalog-images/products/7c9e.../main.jpg
+            position: 0
+            isMain: true
+        skus:
+          - id: s1
+            name: На 6 персон
+            article: CS-1001-6
+            priceCents: 120000
+            priceWithDiscountCents: 102000
+            stockQty: 14
+            isActive: true
+    CartResponseExample:
+      value:
+        items:
+          - id: ci1
+            skuId: s1
+            productName: "Чайный сервиз «Славянский» на 6 персон"
+            skuName: На 6 персон
+            article: CS-1001-6
+            priceCents: 120000
+            priceWithDiscountCents: 102000
+            quantity: 2
+            totalCents: 204000
+            unavailable: false
+        totalCents: 204000
+    OrderResponseExample:
+      value:
+        id: 9f2c8d1e-4b3a-4c1e-9f2c-000000000001
+        number: ORD-2026-000123
+        status: NEW
+        itemsTotalCents: 102000
+        deliveryCents: 0
+        totalCents: 102000
+        items:
+          - id: oi1
+            skuId: s1
+            productName: "Чайный сервиз «Славянский» на 6 персон"
+            skuName: На 6 персон
+            article: CS-1001-6
+            priceCents: 120000
+            priceWithDiscountCents: 102000
+            quantity: 1
+            totalCents: 102000
+        createdAt: "2026-08-17T12:00:00Z"
+  responses:
+    ValidationError:
+      description: Ошибка валидации полей запроса
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationProblemDetails"
+    Unauthorized:
+      description: Отсутствует, просрочен или невалиден токен
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Forbidden:
+      description: Недостаточно прав (роль)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Conflict:
+      description: Конфликт состояния (409)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    BusinessRuleError:
+      description: Нарушение бизнес-правила (422)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Ошибка в формате RFC 9457
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://api.example.com/errors/not-found
+        title:
+          type: string
+          example: Ресурс не найден
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          example: "Товар с id 123 не найден"
+        instance:
+          type: string
+          example: /api/v1/products/123
+        traceId:
+          type: string
+          description: Сквозной идентификатор запроса (совпадает с X-Request-Id)
+          example: f7a2c9d1-4b3a-4c1e-9f2c-8d1e4b3a4c1e
+    ValidationProblemDetails:
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetails"
+        - type: object
+          properties:
+            errors:
+              type: object
+              description: "Карта ошибок валидации: поле → список сообщений"
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+              example:
+                email: ["должен быть валидным email"]
+                password: ["длина от 8 до 72 символов"]
+    PageInfo:
+      type: object
+      description: Метаданные пагинации
+      required: [page, size, total, totalPages]
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    CategoryNode:
+      type: object
+      required: [id, name, slug, sortOrder, children]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 200
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        sortOrder:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryNode"
+    ProductListItem:
+      type: object
+      description: Товар в списке (без деталей и остатков по SKU)
+      required:
+        [id, name, article, series, productType, priceCents, priceWithDiscountCents, ratingAverage, ratingCount, inStock]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 300 }
+        article: { type: string, maxLength: 64 }
+        series: { type: string, maxLength: 200 }
+        productType: { type: string, maxLength: 100 }
+        priceCents: { type: integer, format: int64, description: Цена, копейки BYN }
+        discountPercent: { type: integer, minimum: 0, maximum: 100, nullable: true }
+        priceWithDiscountCents: { type: integer, format: int64, description: Цена со скидкой, копейки BYN }
+        mainImageUrl: { type: string, format: uri, nullable: true }
+        ratingAverage:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 5
+        ratingCount: { type: integer, minimum: 0 }
+        inStock: { type: boolean, description: Остаток больше 0 (из БД) }
+    ProductsPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductListItem"
+    ProductImageResponse:
+      type: object
+      required: [id, url, position, isMain]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri, description: Публичный URL изображения }
+        position: { type: integer, minimum: 0 }
+        isMain: { type: boolean }
+    SkuResponse:
+      type: object
+      required: [id, name, article, priceCents, priceWithDiscountCents, stockQty, isActive]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        article: { type: string, maxLength: 64 }
+        priceCents: { type: integer, format: int64, nullable: true, description: Собственная цена SKU, копейки BYN; null — цена товара }
+        priceWithDiscountCents: { type: integer, format: int64, nullable: true }
+        stockQty: { type: integer, minimum: 0, description: Остаток, всегда из БД }
+        isActive: { type: boolean }
+    ProductResponse:
+      type: object
+      description: Карточка товара
+      required:
+        [id, categoryId, name, article, series, productType, priceCents, priceWithDiscountCents, ratingAverage, ratingCount, images, skus]
+      properties:
+        id: { type: string, format: uuid }
+        categoryId: { type: string, format: uuid }
+        name: { type: string, maxLength: 300 }
+        article: { type: string, maxLength: 64 }
+        description: { type: string, nullable: true }
+        series: { type: string, maxLength: 200 }
+        productType: { type: string, maxLength: 100 }
+        decor: { type: string, maxLength: 200, nullable: true }
+        material: { type: string, maxLength: 100, nullable: true }
+        capacityMl: { type: integer, nullable: true, description: Вместимость, мл }
+        weightG: { type: integer, nullable: true, description: Вес, г }
+        dimensions: { type: string, maxLength: 100, nullable: true, description: "Габариты ДхШхВ" }
+        countryOfOrigin: { type: string, maxLength: 100, nullable: true }
+        barcode: { type: string, maxLength: 32, nullable: true }
+        priceCents: { type: integer, format: int64, description: Цена, копейки BYN }
+        discountPercent: { type: integer, minimum: 0, maximum: 100, nullable: true }
+        priceWithDiscountCents: { type: integer, format: int64, description: Цена со скидкой, копейки BYN }
+        ratingAverage: { type: number, format: double, minimum: 0, maximum: 5 }
+        ratingCount: { type: integer, minimum: 0 }
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImageResponse"
+        skus:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkuResponse"
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: Минимум 8 символов
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    TokenResponse:
+      type: object
+      required: [accessToken, expiresIn, refreshToken, refreshExpiresIn]
+      properties:
+        accessToken: { type: string, description: Access-токен (JWT), 15 минут }
+        expiresIn: { type: integer, description: Время жизни access-токена, секунды }
+        refreshToken: { type: string, description: Refresh-токен (JWT), 30 дней, одноразовый }
+        refreshExpiresIn: { type: integer, description: Время жизни refresh-токена, секунды }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword, newPasswordConfirm]
+      properties:
+        currentPassword: { type: string, format: password, description: Текущий пароль }
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: Новый пароль, не равен текущему
+        newPasswordConfirm: { type: string, format: password, description: Повтор нового пароля }
+    UserProfileResponse:
+      type: object
+      required: [id, email, firstName, lastName, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 30, nullable: true }
+        role:
+          type: string
+          enum: [USER, ADMIN]
+    CartItemResponse:
+      type: object
+      required: [id, skuId, productName, skuName, article, priceCents, priceWithDiscountCents, quantity, totalCents, unavailable]
+      properties:
+        id: { type: string, format: uuid }
+        skuId: { type: string, format: uuid }
+        productName: { type: string, maxLength: 300 }
+        skuName: { type: string, maxLength: 200 }
+        article: { type: string, maxLength: 64 }
+        priceCents: { type: integer, format: int64, description: Актуальная цена, копейки BYN }
+        priceWithDiscountCents: { type: integer, format: int64 }
+        quantity: { type: integer, minimum: 1, maximum: 999 }
+        totalCents: { type: integer, format: int64, description: priceWithDiscountCents * quantity }
+        unavailable:
+          type: boolean
+          description: true, если SKU/товар неактивен или остаток меньше количества
+    CartResponse:
+      type: object
+      required: [items, totalCents]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItemResponse"
+        totalCents: { type: integer, format: int64, description: Сумма по доступным позициям }
+    AddCartItemRequest:
+      type: object
+      required: [skuId, quantity]
+      properties:
+        skuId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 999 }
+    UpdateCartItemRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity: { type: integer, minimum: 1, maximum: 999 }
+    CreateOrderRequest:
+      type: object
+      required: [customerName, customerPhone, deliveryCity, deliveryAddress]
+      properties:
+        customerName:
+          type: string
+          minLength: 2
+          maxLength: 200
+        customerPhone:
+          type: string
+          minLength: 6
+          maxLength: 30
+        deliveryCity:
+          type: string
+          maxLength: 100
+        deliveryAddress:
+          type: string
+          maxLength: 300
+        comment:
+          type: string
+          maxLength: 1000
+          nullable: true
+    OrderItemResponse:
+      type: object
+      description: Снимок товара на момент оформления
+      required: [id, skuId, productName, skuName, article, priceCents, priceWithDiscountCents, quantity, totalCents]
+      properties:
+        id: { type: string, format: uuid }
+        skuId: { type: string, format: uuid, nullable: true }
+        productName: { type: string, maxLength: 300 }
+        skuName: { type: string, maxLength: 200 }
+        article: { type: string, maxLength: 64 }
+        priceCents: { type: integer, format: int64, description: Цена на момент оформления }
+        priceWithDiscountCents: { type: integer, format: int64 }
+        quantity: { type: integer, minimum: 1 }
+        totalCents: { type: integer, format: int64 }
+    OrderResponse:
+      type: object
+      required: [id, number, status, itemsTotalCents, deliveryCents, totalCents, items, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string, example: ORD-2026-000123 }
+        status:
+          type: string
+          enum: [NEW, CONFIRMED, DELIVERED, CANCELLED]
+        itemsTotalCents: { type: integer, format: int64 }
+        deliveryCents: { type: integer, format: int64, description: В v1 всегда 0 (бесплатная доставка) }
+        totalCents: { type: integer, format: int64 }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        createdAt:
+          type: string
+          format: date-time
+    StatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [NEW, CONFIRMED, DELIVERED, CANCELLED]
+          description: Целевой статус; только допустимые переходы
+    OrdersPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrderResponse"
+    FavoritesPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductListItem"
+    CreateReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          nullable: true
+    UpdateReviewRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          nullable: true
+      minProperties: 1
+    ReviewResponse:
+      type: object
+      required: [id, userFirstName, rating, text, isModerated, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        userFirstName: { type: string, maxLength: 100 }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        text: { type: string, nullable: true }
+        isModerated: { type: boolean, description: true — одобрен модерацией и виден публично }
+        createdAt:
+          type: string
+          format: date-time
+    ReviewsPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ReviewResponse"
+    CategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name: { type: string, maxLength: 200 }
+        slug: { type: string, maxLength: 200, pattern: "^[a-z0-9-]+$", description: Уникален среди активных категорий }
+        parentId: { type: string, format: uuid, nullable: true }
+        description: { type: string, nullable: true }
+        imageUrl: { type: string, format: uri, nullable: true }
+        sortOrder: { type: integer, default: 0 }
+    ProductRequest:
+      type: object
+      description: Создание товара; цена со скидкой вычисляется автоматически
+      required: [categoryId, name, article, productType, priceCents]
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string, maxLength: 300 }
+        article: { type: string, maxLength: 64, description: Уникален среди активных }
+        description: { type: string, nullable: true }
+        series: { type: string, maxLength: 200, nullable: true }
+        productType: { type: string, maxLength: 100 }
+        decor: { type: string, maxLength: 200, nullable: true }
+        material: { type: string, maxLength: 100, nullable: true }
+        capacityMl: { type: integer, nullable: true }
+        weightG: { type: integer, nullable: true }
+        dimensions: { type: string, maxLength: 100, nullable: true }
+        countryOfOrigin: { type: string, maxLength: 100, nullable: true }
+        barcode: { type: string, maxLength: 32, nullable: true }
+        priceCents: { type: integer, format: int64, minimum: 0, description: Цена, копейки BYN }
+        discountPercent: { type: integer, minimum: 0, maximum: 100, default: 0 }
+        isActive: { type: boolean, default: true }
+    ProductUpdateRequest:
+      type: object
+      description: Частичное обновление товара; все поля опциональны
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string, maxLength: 300 }
+        description: { type: string, nullable: true }
+        series: { type: string, maxLength: 200, nullable: true }
+        productType: { type: string, maxLength: 100 }
+        decor: { type: string, maxLength: 200, nullable: true }
+        material: { type: string, maxLength: 100, nullable: true }
+        capacityMl: { type: integer, nullable: true }
+        weightG: { type: integer, nullable: true }
+        dimensions: { type: string, maxLength: 100, nullable: true }
+        countryOfOrigin: { type: string, maxLength: 100, nullable: true }
+        barcode: { type: string, maxLength: 32, nullable: true }
+        priceCents: { type: integer, format: int64, minimum: 0 }
+        discountPercent: { type: integer, minimum: 0, maximum: 100 }
+        isActive: { type: boolean }
+      minProperties: 1
+    SkuRequest:
+      type: object
+      required: [name, article, stockQty]
+      properties:
+        name: { type: string, maxLength: 200 }
+        article: { type: string, maxLength: 64, description: Уникален среди активных }
+        priceCents: { type: integer, format: int64, minimum: 0, nullable: true, description: null — цена товара }
+        discountPercent: { type: integer, minimum: 0, maximum: 100, default: 0 }
+        stockQty: { type: integer, minimum: 0 }
+    SkuUpdateRequest:
+      type: object
+      description: Частичное обновление SKU
+      properties:
+        name: { type: string, maxLength: 200 }
+        priceCents: { type: integer, format: int64, minimum: 0, nullable: true }
+        discountPercent: { type: integer, minimum: 0, maximum: 100 }
+        stockQty: { type: integer, minimum: 0 }
+      minProperties: 1
+    ImagePositionRequest:
+      type: object
+      properties:
+        position: { type: integer, minimum: 0 }
+        isMain: { type: boolean }
+      minProperties: 1
+    ReviewModerationRequest:
+      type: object
+      required: [isModerated]
+      properties:
+        isModerated: { type: boolean }
