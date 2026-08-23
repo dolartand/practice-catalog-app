@@ -405,6 +405,44 @@ paths:
                     role: USER
         "401":
           $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [Auth]
+      summary: Редактирование профиля
+      description: |
+        Частичное обновление профиля текущего пользователя (минимум одно поле).
+        Email и роль не изменяются; `phone: null` очищает телефон.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+            examples:
+              update:
+                value:
+                  firstName: Иван
+                  lastName: Иванов
+                  phone: "+375297654321"
+      responses:
+        "200":
+          description: Обновлённый профиль
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+              examples:
+                profile:
+                  value:
+                    id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    email: ivan@example.com
+                    firstName: Иван
+                    lastName: Иванов
+                    phone: "+375297654321"
+                    role: USER
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1/cart:
     get:
       tags: [Cart]
@@ -1571,6 +1609,18 @@ components:
           maxLength: 72
           description: Новый пароль, не равен текущему
         newPasswordConfirm: { type: string, format: password, description: Повтор нового пароля }
+    UpdateProfileRequest:
+      type: object
+      description: Частичное обновление профиля; email и роль не изменяются
+      minProperties: 1
+      properties:
+        firstName: { type: string, minLength: 1, maxLength: 100 }
+        lastName: { type: string, minLength: 1, maxLength: 100 }
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: null — очистить телефон
     UserProfileResponse:
       type: object
       required: [id, email, firstName, lastName, role]
