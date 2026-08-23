@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+app:
+  jwt:
+    secret: "test-secret-key-for-tests-0123456789abcdef0123456789"
+    issuer: practice-catalog-app
+    audience: practice-catalog-mobile
+  admin:
+    email: admin@test.local
+    password: admin-password-123
+  kafka:
+    retry:
+      initial-ms: 50
+      multiplier: 2.0
+      max-interval-ms: 300
+      max-elapsed-ms: 1500
