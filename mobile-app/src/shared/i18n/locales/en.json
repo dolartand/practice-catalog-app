@@ -1,0 +1,73 @@
+{
+  "tabs": { "catalog": "Catalog", "favorites": "Favourites", "cart": "Cart", "profile": "Profile" },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_system": "System"
+  },
+  "catalog": {
+    "search_placeholder": "Find a product",
+    "filters_title": "Filters",
+    "filters_coming_soon": "Filters will appear once the server is connected",
+    "empty": "No products found"
+  },
+  "common": { "retry": "Retry", "cancel": "Cancel" },
+  "profile": {
+    "edit_title": "Profile",
+    "edit_link": "Edit profile",
+    "settings_link": "Settings",
+    "about_link": "About the factory",
+    "field_email": "Email",
+    "email_readonly": "Email cannot be changed",
+    "phone_optional": "Phone (optional)",
+    "save": "Save",
+    "saved": "Profile updated",
+    "guest_title": "Guest",
+    "guest_hint": "Sign in to see your orders and profile"
+  },
+  "about": {
+    "title": "About the factory",
+    "body": "The porcelain factory has a long history: we make dinner sets, tea pairs, cups, vases and souvenirs from high-quality porcelain. Every piece is hand-painted and quality-checked.\n\nThe app offers the full catalog: current prices, stock availability and quick ordering with delivery.",
+    "address_label": "Address",
+    "address_value": "1 Zavodskaya St., Minsk",
+    "phone_label": "Phone",
+    "phone_value": "+375 17 200-00-00",
+    "email_label": "Email",
+    "email_value": "info@porcelain.by",
+    "hours_label": "Working hours",
+    "hours_value": "Mon–Fri 9:00–18:00",
+    "version": "App version: {{version}}"
+  },
+  "auth": {
+    "logout": "Sign out",
+    "logout_confirm_title": "Sign out?",
+    "logout_confirm_message": "You can always sign in again"
+  },
+  "favorite": {
+    "link": "Favourites",
+    "title": "Favourites",
+    "empty": "No favourites yet",
+    "empty_hint": "Tap the heart on a product to save it here",
+    "login_required": "Sign in to add products to favourites",
+    "go_to_catalog": "Browse catalog"
+  },
+  "review": {
+    "section_title": "Reviews",
+    "empty": "No reviews yet",
+    "login_required": "Sign in to leave a review",
+    "write_button": "Write a review",
+    "show_more": "Show more"
+  },
+  "errors": {
+    "http": {
+      "bad_request": "Please check the entered data",
+      "forbidden": "You do not have permission for this action",
+      "not_found": "Not found � it may have been deleted",
+      "conflict": "This entry already exists",
+      "validation": "Some fields are filled in incorrectly"
+    }
+  }
+}

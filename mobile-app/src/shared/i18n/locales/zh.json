@@ -1,0 +1,73 @@
+{
+  "tabs": { "catalog": "商品目录", "favorites": "收藏", "cart": "购物车", "profile": "个人资料" },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "theme": "主题",
+    "theme_light": "浅色",
+    "theme_dark": "深色",
+    "theme_system": "系统"
+  },
+  "catalog": {
+    "search_placeholder": "查找商品",
+    "filters_title": "筛选器",
+    "filters_coming_soon": "连接服务器后将显示筛选器",
+    "empty": "未找到商品"
+  },
+  "common": { "retry": "重试", "cancel": "取消" },
+  "profile": {
+    "edit_title": "个人资料",
+    "edit_link": "编辑资料",
+    "settings_link": "设置",
+    "about_link": "关于工厂",
+    "field_email": "邮箱",
+    "email_readonly": "邮箱不可修改",
+    "phone_optional": "电话（可选）",
+    "save": "保存",
+    "saved": "资料已更新",
+    "guest_title": "访客",
+    "guest_hint": "登录后可查看您的订单和资料"
+  },
+  "about": {
+    "title": "关于工厂",
+    "body": "瓷器厂拥有悠久的历史：我们用优质瓷器生产餐具套装、茶具、杯子、花瓶和纪念品。每件产品均经手工彩绘和质量检验。\n\n应用中提供完整的商品目录：实时价格、库存状态以及便捷的送货下单服务。",
+    "address_label": "地址",
+    "address_value": "明斯克市工厂街1号",
+    "phone_label": "电话",
+    "phone_value": "+375 17 200-00-00",
+    "email_label": "邮箱",
+    "email_value": "info@porcelain.by",
+    "hours_label": "工作时间",
+    "hours_value": "周一至周五 9:00–18:00",
+    "version": "应用版本：{{version}}"
+  },
+  "auth": {
+    "logout": "退出登录",
+    "logout_confirm_title": "退出账号？",
+    "logout_confirm_message": "您随时可以重新登录"
+  },
+  "favorite": {
+    "link": "收藏",
+    "title": "收藏",
+    "empty": "收藏夹还是空的",
+    "empty_hint": "点击商品上的心形图标即可保存到这里",
+    "login_required": "请登录以将商品加入收藏",
+    "go_to_catalog": "去逛商品目录"
+  },
+  "review": {
+    "section_title": "评价",
+    "empty": "暂无评价",
+    "login_required": "请登录后发表评价",
+    "write_button": "写评价",
+    "show_more": "查看更多"
+  },
+  "errors": {
+    "http": {
+      "bad_request": "请检查填写的内容",
+      "forbidden": "您没有权限执行此操作",
+      "not_found": "未找到相关数据，可能已被删除",
+      "conflict": "该记录已存在",
+      "validation": "部分字段填写有误"
+    }
+  }
+}
