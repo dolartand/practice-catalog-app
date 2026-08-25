@@ -757,6 +757,47 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
   /api/v1/admin/categories:
+    get:
+      tags: [Admin]
+      summary: Полное дерево категорий
+      description: |
+        Включает неактивные и мягко удалённые категории (публичное дерево отдаёт только активные).
+        Узел содержит isActive, deletedAt и activeProductCount — для управления каталогом
+        и поиска скрытых категорий.
+      responses:
+        "200":
+          description: Полное дерево категорий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCategoryNode"
+              examples:
+                tree:
+                  value:
+                    - id: a1b2c3d4-1111-4c1e-9f2c-000000000001
+                      name: Сервизы
+                      slug: servizy
+                      imageUrl: null
+                      sortOrder: 1
+                      isActive: false
+                      deletedAt: null
+                      activeProductCount: 12
+                      children:
+                        - id: a1b2c3d4-1111-4c1e-9f2c-000000000002
+                          name: Чайные сервизы
+                          slug: chainye-servizy
+                          imageUrl: null
+                          sortOrder: 1
+                          isActive: true
+                          deletedAt: null
+                          activeProductCount: 5
+                          children: []
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [Admin]
       summary: Создать категорию
@@ -843,6 +884,74 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
   /api/v1/admin/products:
+    get:
+      tags: [Admin]
+      summary: Список всех товаров
+      description: |
+        В отличие от публичного поиска видит неактивные и мягко удалённые товары.
+        `categoryId` фильтрует точным совпадением (без подкатегорий).
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу товара
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, DELETED]
+            default: ACTIVE
+        - name: q
+          in: query
+          description: Поиск по названию, артикулу, серии
+          schema: { type: string, maxLength: 200 }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price_asc, price_desc, rating_desc, newest, discount_desc]
+            default: newest
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Страница товаров (любого статуса)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProductsPage"
+              examples:
+                page:
+                  value:
+                    items:
+                      - id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                        name: "Чайный сервиз «Славянский» на 6 персон"
+                        article: CS-1001
+                        series: Славянский
+                        productType: сервиз
+                        priceCents: 120000
+                        discountPercent: 15
+                        priceWithDiscountCents: 102000
+                        mainImageUrl: http://localhost:8080/catalog-images/products/7c9e.../main.jpg
+                        ratingAverage: 4.8
+                        ratingCount: 23
+                        isActive: false
+                        deletedAt: null
+                        createdAt: "2026-08-17T12:00:00Z"
+                    page: 0
+                    size: 20
+                    total: 1
+                    totalPages: 1
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [Admin]
       summary: Создать товар
@@ -888,6 +997,31 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
   /api/v1/admin/products/{id}:
+    get:
+      tags: [Admin]
+      summary: Карточка товара в любом статусе
+      description: |
+        Полная карточка, включая неактивные и мягко удалённые товары (публичный GET отдаёт 404).
+        Возвращает флаги isActive/deletedAt и все SKU, включая неактивные —
+        для просмотра перед реактивацией.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Карточка товара
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProductCard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     patch:
       tags: [Admin]
       summary: Обновить товар
@@ -1139,15 +1273,73 @@ paths:
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         "200":
-          description: Страница заказов
+          description: Страница заказов (карточки без позиций; позиции — в деталях заказа)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrdersPage"
+                $ref: "#/components/schemas/AdminOrdersPage"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/orders/{id}:
+    get:
+      tags: [Admin]
+      summary: Детали заказа
+      description: |
+        Полные данные для оператора: контакты, адрес, комментарий, позиции заказа (снимки)
+        и история смены статусов.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Детали заказа
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderDetail"
+              examples:
+                detail:
+                  value:
+                    id: 9f2c8d1e-4b3a-4c1e-9f2c-000000000001
+                    number: ORD-2026-000123
+                    userId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    status: CONFIRMED
+                    itemsTotalCents: 102000
+                    deliveryCents: 0
+                    totalCents: 102000
+                    customerName: Иванов Иван
+                    customerPhone: "+375291234567"
+                    deliveryCity: Добруш
+                    deliveryAddress: "ул. Советская, 1"
+                    comment: "Позвонить за час до доставки"
+                    items:
+                      - id: oi1
+                        skuId: s1
+                        productName: "Чайный сервиз «Славянский» на 6 персон"
+                        skuName: На 6 персон
+                        article: CS-1001-6
+                        priceCents: 120000
+                        priceWithDiscountCents: 102000
+                        quantity: 1
+                        totalCents: 102000
+                    statusHistory:
+                      - status: NEW
+                        byUserId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                        at: "2026-08-17T12:00:00Z"
+                      - status: CONFIRMED
+                        byUserId: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+                        at: "2026-08-17T14:30:00Z"
+                    createdAt: "2026-08-17T12:00:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/admin/orders/{id}/status:
     patch:
       tags: [Admin]
@@ -1203,11 +1395,11 @@ paths:
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         "200":
-          description: Страница отзывов
+          description: Страница отзывов с данными пользователя и товара
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewsPage"
+                $ref: "#/components/schemas/AdminReviewsPage"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1880,3 +2072,204 @@ components:
       required: [isModerated]
       properties:
         isModerated: { type: boolean }
+    AdminCategoryNode:
+      type: object
+      description: Узел полного дерева категорий для администратора
+      required: [id, name, slug, sortOrder, isActive, activeProductCount, children]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        slug: { type: string, maxLength: 200 }
+        imageUrl: { type: string, format: uri, nullable: true }
+        sortOrder: { type: integer }
+        isActive:
+          type: boolean
+          description: false — скрыта из публичного каталога
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Момент мягкого удаления; null — не удалена
+        activeProductCount:
+          type: integer
+          minimum: 0
+          description: Число неудалённых товаров в категории
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCategoryNode"
+    AdminProductListItem:
+      type: object
+      description: Товар в админском списке (любого статуса)
+      required:
+        [id, name, article, series, productType, priceCents, priceWithDiscountCents, ratingAverage, ratingCount, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 300 }
+        article: { type: string, maxLength: 64 }
+        series: { type: string, maxLength: 200, nullable: true }
+        productType: { type: string, maxLength: 100 }
+        priceCents: { type: integer, format: int64, description: Цена, копейки BYN }
+        discountPercent: { type: integer, minimum: 0, maximum: 100, nullable: true }
+        priceWithDiscountCents: { type: integer, format: int64 }
+        mainImageUrl: { type: string, format: uri, nullable: true }
+        ratingAverage: { type: number, format: double, minimum: 0, maximum: 5 }
+        ratingCount: { type: integer, minimum: 0 }
+        isActive:
+          type: boolean
+          description: false — товар скрыт из публичного каталога (можно включить через PATCH)
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Заполнен только для статуса DELETED
+        createdAt:
+          type: string
+          format: date-time
+    AdminProductsPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdminProductListItem"
+    AdminProductCard:
+      allOf:
+        - $ref: "#/components/schemas/ProductResponse"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+              description: false — товар скрыт из публичного каталога
+            deletedAt:
+              type: string
+              format: date-time
+              nullable: true
+              description: Момент мягкого удаления; null — не удалён
+    StatusHistoryEntry:
+      type: object
+      description: Запись истории смены статуса заказа
+      required: [status, byUserId, at]
+      properties:
+        status:
+          type: string
+          enum: [NEW, CONFIRMED, DELIVERED, CANCELLED]
+          description: Установленный статус
+        byUserId:
+          type: string
+          format: uuid
+          description: Кто выполнил переход (пользователь или оператор)
+        at:
+          type: string
+          description: Момент перехода (ISO-8601)
+          example: "2026-08-17T14:30:00Z"
+    AdminOrderListItem:
+      type: object
+      description: Карточка заказа в списке оператора (без позиций)
+      required: [id, number, userId, status, itemsTotalCents, deliveryCents, totalCents, customerName, customerPhone, itemCount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string, example: ORD-2026-000123 }
+        userId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [NEW, CONFIRMED, DELIVERED, CANCELLED]
+        itemsTotalCents: { type: integer, format: int64 }
+        deliveryCents: { type: integer, format: int64 }
+        totalCents: { type: integer, format: int64 }
+        customerName: { type: string, maxLength: 200 }
+        customerPhone: { type: string, maxLength: 30 }
+        itemCount:
+          type: integer
+          minimum: 1
+          description: Число позиций в заказе (сами позиции — в деталях)
+        createdAt:
+          type: string
+          format: date-time
+    AdminOrdersPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdminOrderListItem"
+    AdminOrderDetail:
+      type: object
+      description: Полные данные заказа для оператора
+      required: [id, number, userId, status, itemsTotalCents, deliveryCents, totalCents, customerName, customerPhone, deliveryCity, deliveryAddress, items, statusHistory, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string, example: ORD-2026-000123 }
+        userId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [NEW, CONFIRMED, DELIVERED, CANCELLED]
+        itemsTotalCents: { type: integer, format: int64 }
+        deliveryCents: { type: integer, format: int64, description: В v1 всегда 0 }
+        totalCents: { type: integer, format: int64 }
+        customerName: { type: string, maxLength: 200 }
+        customerPhone: { type: string, maxLength: 30 }
+        deliveryCity: { type: string, maxLength: 100 }
+        deliveryAddress: { type: string, maxLength: 300 }
+        comment: { type: string, nullable: true, maxLength: 1000 }
+        items:
+          type: array
+          description: Позиции заказа (снимки на момент оформления)
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        statusHistory:
+          type: array
+          description: Хронология смены статусов
+          items:
+            $ref: "#/components/schemas/StatusHistoryEntry"
+        createdAt:
+          type: string
+          format: date-time
+    AdminReviewResponse:
+      type: object
+      description: Отзыв на модерации с данными пользователя и товара
+      required: [id, userId, productId, rating, text, isModerated, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productName:
+          type: string
+          nullable: true
+          description: Название товара (виден даже если товар удалён)
+        productArticle:
+          type: string
+          nullable: true
+          maxLength: 64
+        userEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Email автора отзыва
+        userFirstName: { type: string, nullable: true, maxLength: 100 }
+        userLastName: { type: string, nullable: true, maxLength: 100 }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        text: { type: string, nullable: true, maxLength: 2000 }
+        isModerated:
+          type: boolean
+          description: true — одобрен и виден публично
+        createdAt:
+          type: string
+          format: date-time
+    AdminReviewsPage:
+      allOf:
+        - $ref: "#/components/schemas/PageInfo"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdminReviewResponse"

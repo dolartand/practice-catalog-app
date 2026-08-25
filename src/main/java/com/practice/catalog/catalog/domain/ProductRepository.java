@@ -24,9 +24,29 @@ public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpec
             """)
     List<UUID> findInStockProductIds(Collection<UUID> productIds);
 
+    @Query("""
+            select p.categoryId as categoryId, count(p) as count
+            from Product p where p.deletedAt is null group by p.categoryId
+            """)
+    List<CategoryProductCount> countActiveByCategory();
+
+    interface CategoryProductCount {
+        UUID getCategoryId();
+
+        long getCount();
+    }
+
     interface Specs {
         static Specification<Product> notDeleted() {
             return (root, q, cb) -> cb.isNull(root.get("deletedAt"));
+        }
+
+        static Specification<Product> deletedOnly() {
+            return (root, q, cb) -> cb.isNotNull(root.get("deletedAt"));
+        }
+
+        static Specification<Product> activeEquals(boolean active) {
+            return (root, q, cb) -> cb.equal(root.get("active"), active);
         }
 
         static Specification<Product> activeOnly(boolean activeOnly) {

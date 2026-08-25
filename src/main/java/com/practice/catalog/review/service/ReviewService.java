@@ -1,6 +1,8 @@
 package com.practice.catalog.review.service;
 
+import com.practice.catalog.auth.domain.User;
 import com.practice.catalog.auth.domain.UserRepository;
+import com.practice.catalog.catalog.domain.Product;
 import com.practice.catalog.catalog.domain.ProductRepository;
 import com.practice.catalog.common.api.PageResponse;
 import com.practice.catalog.common.events.DomainEventPublisher;
@@ -18,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -141,15 +145,30 @@ public class ReviewService {
                 ? reviewRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(Math.max(page, 0), clamp(size)))
                 : reviewRepository.findByModeratedOrderByCreatedAtDesc(moderated,
                         PageRequest.of(Math.max(page, 0), clamp(size)));
+        Set<UUID> userIds = result.getContent().stream()
+                .map(Review::getUserId).collect(java.util.stream.Collectors.toSet());
+        Set<UUID> productIds = result.getContent().stream()
+                .map(Review::getProductId).collect(java.util.stream.Collectors.toSet());
+        Map<UUID, User> usersById = userRepository.findAllById(userIds).stream()
+                .collect(java.util.stream.Collectors.toMap(User::getId, user -> user));
+        Map<UUID, Product> productsById = productRepository.findAllById(productIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Product::getId, product -> product));
         List<AdminReviewView> items = result.getContent().stream()
-                .map(this::toAdminView)
+                .map(review -> toAdminView(review,
+                        usersById.get(review.getUserId()),
+                        productsById.get(review.getProductId())))
                 .toList();
         return new PageResponse<>(items, result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages());
     }
 
-    private AdminReviewView toAdminView(Review review) {
+    private AdminReviewView toAdminView(Review review, User user, Product product) {
         return new AdminReviewView(review.getId(), review.getUserId(), review.getProductId(),
+                product != null ? product.getName() : null,
+                product != null ? product.getArticle() : null,
+                user != null ? user.getEmail() : null,
+                user != null ? user.getFirstName() : null,
+                user != null ? user.getLastName() : null,
                 review.getRating(), review.getText(), review.isModerated(), review.getCreatedAt());
     }
 
@@ -170,8 +189,11 @@ public class ReviewService {
                              boolean moderated, java.time.Instant createdAt) {
     }
 
-    public record AdminReviewView(UUID id, UUID userId, UUID productId, int rating,
-                                  String text, boolean moderated, java.time.Instant createdAt) {
+    public record AdminReviewView(UUID id, UUID userId, UUID productId,
+                                  String productName, String productArticle,
+                                  String userEmail, String userFirstName, String userLastName,
+                                  int rating, String text, boolean moderated,
+                                  java.time.Instant createdAt) {
     }
 
     private ReviewData toData(Review review) {

@@ -221,6 +221,58 @@ class OrderFlowIT extends TestcontainersBase {
     }
 
     @Test
+    void adminSeesOrderListWithCountsAndDetailWithItems() throws Exception {
+        String token = newUser("admdet-" + UUID.randomUUID() + "@test.by");
+        String adminAuth = adminToken();
+        CatalogRef catalog = createProductWithSku(adminAuth, 4);
+
+        addToCart(token, catalog.skuId(), 2);
+        MvcResult created = mockMvc.perform(post("/api/v1/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(checkoutBody()))
+                .andExpect(status().isCreated()).andReturn();
+        String orderId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(patch("/api/v1/admin/orders/" + orderId + "/status")
+                        .header("Authorization", "Bearer " + adminAuth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CONFIRMED\"}"))
+                .andExpect(status().isOk());
+
+        MvcResult list = mockMvc.perform(get("/api/v1/admin/orders")
+                        .header("Authorization", "Bearer " + adminAuth)
+                        .param("status", "CONFIRMED"))
+                .andExpect(status().isOk()).andReturn();
+        String listBody = list.getResponse().getContentAsString();
+        assertThat(listBody).contains(orderId);
+        assertThat((List<Integer>) JsonPath.read(listBody,
+                "$.items[?(@.id == '" + orderId + "')].itemCount")).containsExactly(1);
+        assertThat((List<String>) JsonPath.read(listBody,
+                "$.items[?(@.id == '" + orderId + "')].customerName"))
+                .containsExactly("Иванов Иван");
+
+        mockMvc.perform(get("/api/v1/admin/orders/" + orderId)
+                        .header("Authorization", "Bearer " + adminAuth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(orderId))
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.deliveryCity").value("Минск"))
+                .andExpect(jsonPath("$.deliveryAddress").value("ул. Ленина, 1"))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].productName").exists())
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[0].totalCents").value(36000))
+                .andExpect(jsonPath("$.statusHistory.length()").value(2))
+                .andExpect(jsonPath("$.statusHistory[0].status").value("NEW"))
+                .andExpect(jsonPath("$.statusHistory[1].status").value("CONFIRMED"));
+
+        mockMvc.perform(get("/api/v1/admin/orders/" + UUID.randomUUID())
+                        .header("Authorization", "Bearer " + adminAuth))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void checkoutIsIdempotentByRequestId() throws Exception {
         String token = newUser("idem-" + UUID.randomUUID() + "@test.by");
         String adminAuth = adminToken();

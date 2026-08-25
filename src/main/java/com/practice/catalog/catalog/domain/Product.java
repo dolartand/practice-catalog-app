@@ -4,14 +4,12 @@ import com.practice.catalog.common.domain.SoftDeletableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
 @Table(name = "products")
-@SQLRestriction("deleted_at IS NULL")
 public class Product extends SoftDeletableEntity {
 
     @Column(name = "category_id", nullable = false)

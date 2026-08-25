@@ -1,10 +1,10 @@
 package com.practice.catalog.catalog.service;
 
+import com.practice.catalog.catalog.api.dto.AdminCategoryNodeResponse;
 import com.practice.catalog.catalog.api.dto.CategoryNodeResponse;
 import com.practice.catalog.catalog.domain.Category;
 import com.practice.catalog.catalog.domain.CategoryRepository;
-import com.practice.catalog.catalog.domain.ProductRepository;
-import com.practice.catalog.common.exception.ConflictException;
+import com.practice.catalog.catalog.domain.ProductRepository;import com.practice.catalog.common.exception.ConflictException;
 import com.practice.catalog.common.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +47,38 @@ public class CategoryService {
                 CategoryNodeResponse parent = nodes.get(category.getParentId());
                 if (parent != null) {
                     parent.children().add(node);
+                }
+            }
+        }
+        return roots;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminCategoryNodeResponse> getFullTree() {
+        List<Category> all = categoryRepository.findAllByOrderByCreatedAtAsc();
+        Map<UUID, Long> productCounts = new HashMap<>();
+        for (ProductRepository.CategoryProductCount row : productRepository.countActiveByCategory()) {
+            productCounts.put(row.getCategoryId(), row.getCount());
+        }
+        Map<UUID, AdminCategoryNodeResponse> nodes = new HashMap<>();
+        for (Category category : all) {
+            nodes.put(category.getId(), new AdminCategoryNodeResponse(
+                    category.getId(), category.getName(), category.getSlug(),
+                    category.getImageUrl(), category.getSortOrder(),
+                    category.isActive(), category.getDeletedAt(),
+                    productCounts.getOrDefault(category.getId(), 0L), null));
+        }
+        List<AdminCategoryNodeResponse> roots = new java.util.ArrayList<>();
+        for (Category category : all) {
+            AdminCategoryNodeResponse node = nodes.get(category.getId());
+            if (category.getParentId() == null) {
+                roots.add(node);
+            } else {
+                AdminCategoryNodeResponse parent = nodes.get(category.getParentId());
+                if (parent != null) {
+                    parent.children().add(node);
+                } else {
+                    roots.add(node);
                 }
             }
         }

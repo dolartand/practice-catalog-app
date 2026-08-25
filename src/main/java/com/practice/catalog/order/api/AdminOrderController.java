@@ -2,6 +2,7 @@ package com.practice.catalog.order.api;
 
 import com.practice.catalog.common.api.PageResponse;
 import com.practice.catalog.order.domain.Order;
+import com.practice.catalog.order.domain.OrderItem;
 import com.practice.catalog.order.domain.OrderStatus;
 import com.practice.catalog.order.service.OrderService;
 import jakarta.validation.constraints.NotNull;
@@ -15,7 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -32,7 +36,33 @@ public class AdminOrderController {
     public record UpdateStatusRequest(@NotNull OrderStatus status) {
     }
 
-    public record AdminOrderResponse(
+    public record AdminOrderListItem(
+            UUID id,
+            String number,
+            UUID userId,
+            OrderStatus status,
+            long itemsTotalCents,
+            long deliveryCents,
+            long totalCents,
+            String customerName,
+            String customerPhone,
+            long itemCount,
+            Instant createdAt) {
+    }
+
+    public record AdminOrderItemResponse(
+            UUID id,
+            UUID skuId,
+            String productName,
+            String skuName,
+            String article,
+            long priceCents,
+            long priceWithDiscountCents,
+            int quantity,
+            long totalCents) {
+    }
+
+    public record AdminOrderDetailResponse(
             UUID id,
             String number,
             UUID userId,
@@ -45,34 +75,69 @@ public class AdminOrderController {
             String deliveryCity,
             String deliveryAddress,
             String comment,
-            java.time.Instant createdAt) {
+            List<AdminOrderItemResponse> items,
+            List<Order.StatusEvent> statusHistory,
+            Instant createdAt) {
     }
 
     @GetMapping
-    public PageResponse<AdminOrderResponse> list(
+    public PageResponse<AdminOrderListItem> list(
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         var result = orderService.listForAdmin(status, page, size);
-        List<AdminOrderResponse> items = result.getContent().stream()
-                .map(this::toResponse)
+        List<Order> orders = result.getContent();
+        Map<UUID, Long> itemCounts = itemCountsByOrderId(orders);
+        List<AdminOrderListItem> items = orders.stream()
+                .map(order -> toListItem(order, itemCounts.getOrDefault(order.getId(), 0L)))
                 .toList();
         return new PageResponse<>(items, result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages());
     }
 
-    @PatchMapping("/{id}/status")
-    public AdminOrderResponse changeStatus(@AuthenticationPrincipal UUID adminId,
-                                           @PathVariable UUID id,
-                                           @RequestBody UpdateStatusRequest request) {
-        return toResponse(orderService.changeStatusByAdmin(id, request.status(), adminId));
+    @GetMapping("/{id}")
+    public AdminOrderDetailResponse get(@PathVariable UUID id) {
+        return toDetail(orderService.getForAdmin(id));
     }
 
-    private AdminOrderResponse toResponse(Order order) {
-        return new AdminOrderResponse(order.getId(), order.getNumber(), order.getUserId(),
+    @PatchMapping("/{id}/status")
+    public AdminOrderDetailResponse changeStatus(@AuthenticationPrincipal UUID adminId,
+                                                 @PathVariable UUID id,
+                                                 @RequestBody UpdateStatusRequest request) {
+        return toDetail(orderService.changeStatusByAdmin(id, request.status(), adminId));
+    }
+
+    private Map<UUID, Long> itemCountsByOrderId(List<Order> orders) {
+        Map<UUID, Long> counts = new HashMap<>();
+        if (orders.isEmpty()) {
+            return counts;
+        }
+        List<UUID> orderIds = orders.stream().map(Order::getId).toList();
+        for (var row : orderService.itemCounts(orderIds)) {
+            counts.put(row.getOrderId(), row.getCount());
+        }
+        return counts;
+    }
+
+    private AdminOrderListItem toListItem(Order order, long itemCount) {
+        return new AdminOrderListItem(order.getId(), order.getNumber(), order.getUserId(),
+                order.getStatus(), order.getItemsTotalCents(), order.getDeliveryCents(),
+                order.getTotalCents(), order.getCustomerName(), order.getCustomerPhone(),
+                itemCount, order.getCreatedAt());
+    }
+
+    private AdminOrderDetailResponse toDetail(Order order) {
+        List<OrderItem> orderItems = orderService.items(order.getId());
+        List<AdminOrderItemResponse> items = orderItems.stream()
+                .map(item -> new AdminOrderItemResponse(item.getId(), item.getSkuId(),
+                        item.getProductName(), item.getSkuName(), item.getArticle(),
+                        item.getPriceCents(), item.getPriceWithDiscountCents(),
+                        item.getQuantity(), item.getTotalCents()))
+                .toList();
+        return new AdminOrderDetailResponse(order.getId(), order.getNumber(), order.getUserId(),
                 order.getStatus(), order.getItemsTotalCents(), order.getDeliveryCents(),
                 order.getTotalCents(), order.getCustomerName(), order.getCustomerPhone(),
                 order.getDeliveryCity(), order.getDeliveryAddress(), order.getComment(),
-                order.getCreatedAt());
+                items, order.getStatusHistory(), order.getCreatedAt());
     }
 }

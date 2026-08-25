@@ -1,5 +1,7 @@
 package com.practice.catalog.catalog.service;
 
+import com.practice.catalog.catalog.api.dto.AdminProductCardResponse;
+import com.practice.catalog.catalog.api.dto.AdminProductSummaryResponse;
 import com.practice.catalog.catalog.api.dto.ProductCardResponse;
 import com.practice.catalog.catalog.api.dto.ProductImageResponse;
 import com.practice.catalog.catalog.api.dto.ProductSkuResponse;
@@ -90,6 +92,37 @@ public class ProductQueryService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<AdminProductSummaryResponse> searchForAdmin(ProductAdminStatus status,
+                                                                    String q, UUID categoryId,
+                                                                    ProductSort sort,
+                                                                    int page, int size) {
+        Specification<Product> spec = switch (status == null ? ProductAdminStatus.ACTIVE : status) {
+            case ACTIVE -> ProductRepository.Specs.notDeleted()
+                    .and(ProductRepository.Specs.activeEquals(true));
+            case INACTIVE -> ProductRepository.Specs.notDeleted()
+                    .and(ProductRepository.Specs.activeEquals(false));
+            case DELETED -> ProductRepository.Specs.deletedOnly();
+        };
+        if (q != null && !q.isBlank()) {
+            spec = spec.and(ProductRepository.Specs.textQuery(q.trim()));
+        }
+        if (categoryId != null) {
+            spec = spec.and(ProductRepository.Specs.inCategories(java.util.Set.of(categoryId)));
+        }
+        int safeSize = Math.min(Math.max(size, 1), ProductSearchQuery.MAX_PAGE_SIZE);
+        int safePage = Math.max(page, 0);
+        Page<Product> result = productRepository.findAll(spec,
+                PageRequest.of(safePage, safeSize, sort.toSort()));
+
+        Map<UUID, String> mainImages = resolveMainImages(result.getContent());
+        List<AdminProductSummaryResponse> items = result.getContent().stream()
+                .map(product -> toAdminSummary(product, mainImages.get(product.getId())))
+                .toList();
+        return new PageResponse<>(items, result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages());
+    }
+
+    @Transactional(readOnly = true)
     public ProductCardResponse getPublicCard(UUID id) {
         Product product = findActive(id);
         if (!product.isActive()) {
@@ -99,8 +132,10 @@ public class ProductQueryService {
     }
 
     @Transactional(readOnly = true)
-    public ProductCardResponse getAdminCard(UUID id) {
-        return toCard(findActive(id), true);
+    public AdminProductCardResponse getAdminCard(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Product", id));
+        return toAdminCard(product);
     }
 
     @Transactional(readOnly = true)
@@ -143,6 +178,26 @@ public class ProductQueryService {
                 product.getDimensions(), product.getCountryOfOrigin(), product.getBarcode(),
                 product.getPriceCents(), product.getDiscountPercent(), product.getPriceWithDiscountCents(),
                 product.getRatingAverage(), product.getRatingCount(), images, skus);
+    }
+
+    private AdminProductSummaryResponse toAdminSummary(Product product, String mainImageUrl) {
+        return new AdminProductSummaryResponse(
+                product.getId(), product.getName(), product.getArticle(), product.getSeries(),
+                product.getProductType(), product.getPriceCents(), product.getDiscountPercent(),
+                product.getPriceWithDiscountCents(), mainImageUrl,
+                product.getRatingAverage(), product.getRatingCount(),
+                product.isActive(), product.getDeletedAt(), product.getCreatedAt());
+    }
+
+    private AdminProductCardResponse toAdminCard(Product product) {
+        ProductCardResponse base = toCard(product, true);
+        return new AdminProductCardResponse(
+                base.id(), base.categoryId(), base.name(), base.article(), base.description(),
+                base.series(), base.productType(), base.decor(), base.material(),
+                base.capacityMl(), base.weightG(), base.dimensions(), base.countryOfOrigin(),
+                base.barcode(), base.priceCents(), base.discountPercent(),
+                base.priceWithDiscountCents(), base.ratingAverage(), base.ratingCount(),
+                product.isActive(), product.getDeletedAt(), base.images(), base.skus());
     }
 
     private ProductSku withEffectivePrice(Product product, ProductSku sku) {

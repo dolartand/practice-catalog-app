@@ -1,15 +1,20 @@
 package com.practice.catalog.catalog.api;
 
-import com.practice.catalog.catalog.api.dto.ProductCardResponse;
+import com.practice.catalog.catalog.api.dto.AdminProductCardResponse;
+import com.practice.catalog.catalog.api.dto.AdminProductSummaryResponse;
 import com.practice.catalog.catalog.api.dto.ProductImageResponse;
 import com.practice.catalog.catalog.api.dto.ProductSkuResponse;
 import com.practice.catalog.catalog.service.ProductAdminService;
+import com.practice.catalog.catalog.service.ProductAdminStatus;
 import com.practice.catalog.catalog.service.ProductQueryService;
+import com.practice.catalog.catalog.service.ProductSort;
+import com.practice.catalog.common.api.PageResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -98,8 +103,25 @@ public class AdminProductController {
             Boolean isMain) {
     }
 
+    @GetMapping("/products")
+    public PageResponse<AdminProductSummaryResponse> listProducts(
+            @RequestParam(defaultValue = "ACTIVE") ProductAdminStatus status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return productQueryService.searchForAdmin(status, q, categoryId,
+                ProductSort.fromValue(sort), page, size);
+    }
+
+    @GetMapping("/products/{id}")
+    public AdminProductCardResponse getProduct(@PathVariable UUID id) {
+        return productQueryService.getAdminCard(id);
+    }
+
     @PostMapping("/products")
-    public ResponseEntity<ProductCardResponse> create(@RequestBody CreateProductRequest request) {
+    public ResponseEntity<AdminProductCardResponse> create(@RequestBody CreateProductRequest request) {
         var product = productAdminService.createProduct(new ProductAdminService.CreateProductCommand(
                 request.categoryId(), request.name(), request.article(), request.description(),
                 request.series(), request.productType(), request.decor(), request.material(),
@@ -107,13 +129,13 @@ public class AdminProductController {
                 request.countryOfOrigin(), request.barcode(),
                 request.priceCents(), request.discountPercent(), request.isActive()));
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/v1/products/{id}").buildAndExpand(product.getId()).toUri();
+                .path("/api/v1/admin/products/{id}").buildAndExpand(product.getId()).toUri();
         return ResponseEntity.created(location)
                 .body(productQueryService.getAdminCard(product.getId()));
     }
 
     @PatchMapping("/products/{id}")
-    public ProductCardResponse update(@PathVariable UUID id, @RequestBody UpdateProductRequest request) {
+    public AdminProductCardResponse update(@PathVariable UUID id, @RequestBody UpdateProductRequest request) {
         productAdminService.updateProduct(id, new ProductAdminService.UpdateProductCommand(
                 request.categoryId(), request.name(), request.article(), request.description(),
                 request.series(), request.productType(), request.decor(), request.material(),

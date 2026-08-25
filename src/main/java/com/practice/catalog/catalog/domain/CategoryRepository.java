@@ -15,15 +15,18 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
 
     Optional<Category> findByIdAndDeletedAtIsNull(UUID id);
 
+    List<Category> findAllByOrderByCreatedAtAsc();
+
     @Query(value = """
             WITH RECURSIVE tree AS (
                 SELECT id, parent_id, name, slug, description, image_url, sort_order, is_active,
                        created_at, updated_at, deleted_at, 0 AS level
-                  FROM categories WHERE parent_id IS NULL AND deleted_at IS NULL
+                  FROM categories WHERE parent_id IS NULL AND deleted_at IS NULL AND is_active = true
                 UNION ALL
                 SELECT c.id, c.parent_id, c.name, c.slug, c.description, c.image_url, c.sort_order,
                        c.is_active, c.created_at, c.updated_at, c.deleted_at, t.level + 1
-                  FROM categories c JOIN tree t ON c.parent_id = t.id WHERE c.deleted_at IS NULL
+                  FROM categories c JOIN tree t ON c.parent_id = t.id
+                   WHERE c.deleted_at IS NULL AND c.is_active = true
             )
             SELECT id, parent_id, name, slug, description, image_url, sort_order, is_active,
                    created_at, updated_at, deleted_at FROM tree ORDER BY level, sort_order, name

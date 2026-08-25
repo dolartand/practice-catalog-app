@@ -259,4 +259,123 @@ class AdminCatalogIT extends TestcontainersBase {
         mockMvc.perform(get("/api/v1/products/" + productId))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void adminProductListAndCardWorkAcrossStatuses() throws Exception {
+        MvcResult category = createCategory("stat-" + UUID.randomUUID());
+        String categoryId = JsonPath.read(category.getResponse().getContentAsString(), "$.id");
+        String article = "STA-" + UUID.randomUUID();
+        String productId = createProduct(UUID.fromString(categoryId), article);
+
+        mockMvc.perform(get("/api/v1/admin/products")
+                        .with(user(admin()).roles("ADMIN"))
+                        .param("status", "ACTIVE").param("q", article))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].isActive").value(true));
+
+        mockMvc.perform(patch("/api/v1/admin/products/" + productId)
+                        .with(user(admin()).roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isActive\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isActive").value(false));
+
+        mockMvc.perform(get("/api/v1/admin/products")
+                        .with(user(admin()).roles("ADMIN"))
+                        .param("status", "ACTIVE").param("q", article))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0));
+
+        mockMvc.perform(get("/api/v1/admin/products")
+                        .with(user(admin()).roles("ADMIN"))
+                        .param("status", "INACTIVE").param("q", article))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(productId))
+                .andExpect(jsonPath("$.items[0].isActive").value(false));
+
+        mockMvc.perform(get("/api/v1/admin/products/" + productId)
+                        .with(user(admin()).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(productId))
+                .andExpect(jsonPath("$.isActive").value(false))
+                .andExpect(jsonPath("$.deletedAt").doesNotExist());
+
+        mockMvc.perform(patch("/api/v1/admin/products/" + productId)
+                        .with(user(admin()).roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isActive\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isActive").value(true));
+
+        mockMvc.perform(get("/api/v1/admin/products")
+                        .with(user(admin()).roles("ADMIN"))
+                        .param("status", "ACTIVE").param("q", article))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1));
+    }
+
+    @Test
+    void adminSeesSoftDeletedProductsAndAdminCard() throws Exception {
+        MvcResult category = createCategory("sdel-" + UUID.randomUUID());
+        String categoryId = JsonPath.read(category.getResponse().getContentAsString(), "$.id");
+        String article = "SDE-" + UUID.randomUUID();
+        String productId = createProduct(UUID.fromString(categoryId), article);
+
+        mockMvc.perform(delete("/api/v1/admin/products/" + productId)
+                        .with(user(admin()).roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/products/" + productId))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/admin/products")
+                        .with(user(admin()).roles("ADMIN"))
+                        .param("status", "DELETED").param("q", article))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(productId))
+                .andExpect(jsonPath("$.items[0].deletedAt").exists());
+
+        mockMvc.perform(get("/api/v1/admin/products/" + productId)
+                        .with(user(admin()).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isActive").value(true))
+                .andExpect(jsonPath("$.deletedAt").exists());
+    }
+
+    @Test
+    void adminFullTreeShowsInactiveCategoriesWithFlags() throws Exception {
+        MvcResult parent = createCategory("ftree-" + UUID.randomUUID());
+        String parentId = JsonPath.read(parent.getResponse().getContentAsString(), "$.id");
+
+        String childSlug = "fchild-" + UUID.randomUUID();
+        mockMvc.perform(post("/api/v1/admin/categories")
+                        .with(user(admin()).roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Дети\",\"slug\":\"" + childSlug
+                                + "\",\"parentId\":\"" + parentId + "\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        mockMvc.perform(patch("/api/v1/admin/categories/" + parentId)
+                        .with(user(admin()).roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isActive\":false}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/categories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + parentId + "')]").doesNotExist());
+
+        MvcResult tree = mockMvc.perform(get("/api/v1/admin/categories")
+                        .with(user(admin()).roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andReturn();
+        String response = tree.getResponse().getContentAsString();
+        assertThat(response).contains(parentId);
+        assertThat(response).contains("\"isActive\":false");
+        assertThat(response).contains(childSlug);
+    }
 }

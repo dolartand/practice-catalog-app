@@ -197,6 +197,41 @@ class ReviewFlowIT extends TestcontainersBase {
     }
 
     @Test
+    void adminReviewListShowsUserAndProductDetails() throws Exception {
+        String email = "mbuyer-" + UUID.randomUUID() + "@test.by";
+        String buyerToken = newUser(email);
+        String adminAuth = adminToken();
+        CatalogRef catalog = createProductWithSku(adminAuth);
+        buyAndDeliver(buyerToken, adminAuth, catalog);
+
+        MvcResult created = mockMvc.perform(post("/api/v1/products/" + catalog.productId() + "/reviews")
+                        .header("Authorization", "Bearer " + buyerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":5,\"text\":\"Смотрю на модерации\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String reviewId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        MvcResult list = mockMvc.perform(get("/api/v1/admin/reviews")
+                        .header("Authorization", "Bearer " + adminAuth)
+                        .param("isModerated", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andReturn();
+        String body = list.getResponse().getContentAsString();
+
+        assertThat((String) JsonPath.read(body, "$.items[0].id")).isEqualTo(reviewId);
+        assertThat((String) JsonPath.read(body, "$.items[0].userEmail")).isEqualTo(email);
+        assertThat((String) JsonPath.read(body, "$.items[0].userFirstName")).isEqualTo("Ольга");
+        assertThat((String) JsonPath.read(body, "$.items[0].productName")).contains("Чашка ");
+        assertThat((String) JsonPath.read(body, "$.items[0].productArticle")).isNotNull();
+        assertThat((String) JsonPath.read(body, "$.items[0].productId")).isEqualTo(catalog.productId());
+
+        mockMvc.perform(delete("/api/v1/reviews/" + reviewId)
+                        .header("Authorization", "Bearer " + buyerToken))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void otherUserCannotEditForeignReview() throws Exception {
         String buyerToken = newUser("fbuyer-" + UUID.randomUUID() + "@test.by");
         String stranger = newUser("stranger-" + UUID.randomUUID() + "@test.by");

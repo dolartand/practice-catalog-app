@@ -4,13 +4,11 @@ import com.practice.catalog.common.domain.SoftDeletableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.SQLRestriction;
 
 import java.util.UUID;
 
 @Entity
 @Table(name = "categories")
-@SQLRestriction("deleted_at IS NULL")
 public class Category extends SoftDeletableEntity {
 
     @Column(name = "parent_id")

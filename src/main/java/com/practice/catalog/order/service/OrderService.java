@@ -9,8 +9,7 @@ import com.practice.catalog.common.exception.ForbiddenException;
 import com.practice.catalog.common.exception.ResourceNotFoundException;
 import com.practice.catalog.order.domain.Order;
 import com.practice.catalog.order.domain.OrderItem;
-import com.practice.catalog.order.domain.OrderItemRepository;
-import com.practice.catalog.order.domain.OrderRepository;
+import com.practice.catalog.order.domain.OrderItemRepository;import com.practice.catalog.order.domain.OrderRepository;
 import com.practice.catalog.order.domain.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -82,6 +81,12 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public Order getForAdmin(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Order", orderId));
+    }
+
+    @Transactional(readOnly = true)
     public java.util.Optional<Order> findByRequestIdAndUser(String requestId, UUID userId) {
         return orderRepository.findByRequestId(requestId)
                 .filter(order -> order.getUserId().equals(userId));
@@ -104,6 +109,14 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderItem> items(UUID orderId) {
         return orderItemRepository.findByOrderId(orderId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderItemRepository.OrderItemCount> itemCounts(List<UUID> orderIds) {
+        if (orderIds.isEmpty()) {
+            return List.of();
+        }
+        return orderItemRepository.countByOrderIds(orderIds);
     }
 
     private Order lock(UUID orderId) {

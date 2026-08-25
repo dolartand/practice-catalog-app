@@ -207,20 +207,27 @@
 
 | Метод | Путь | Описание |
 |---|---|---|
+| `GET` | `/api/v1/admin/categories` | **Полное дерево** — включая неактивные и soft-deleted категории; узел: `{ id, name, slug, imageUrl, sortOrder, isActive, deletedAt?, activeProductCount, children }` |
 | `POST` | `/api/v1/admin/categories` | Создать категорию `{ name, slug, parentId?, description?, imageUrl?, sortOrder }` |
-| `PATCH` | `/api/v1/admin/categories/{id}` | Обновить категорию |
+| `PATCH` | `/api/v1/admin/categories/{id}` | Обновить категорию (в т.ч. реактивация: `isActive: true`) |
 | `DELETE` | `/api/v1/admin/categories/{id}` | Soft delete (запрещён, если есть активные товары/подкатегории) → 409 |
+
+Публичное дерево (`GET /api/v1/categories`) отдаёт только активные и неудалённые; полное дерево для управления — только здесь.
 
 ### Товары и SKU
 
 | Метод | Путь | Описание |
 |---|---|---|
+| `GET` | `/api/v1/admin/products` | Все товары; фильтр `status=ACTIVE\|INACTIVE\|DELETED` (default `ACTIVE`), поиск `q` (название/артикул/серия), точный фильтр `categoryId`, сортировки из раздела 1, пагинация. Элемент: сводка товара + `isActive`, `deletedAt?`, `createdAt` |
+| `GET` | `/api/v1/admin/products/{id}` | Карточка товара в **любом статусе** (публичный отдаёт 404): полные поля + `isActive`, `deletedAt?`, SKU (включая неактивные), изображения |
 | `POST` | `/api/v1/admin/products` | Создать товар (все фиксированные поля, цены в копейках) |
-| `PATCH` | `/api/v1/admin/products/{id}` | Обновить товар (пересчёт цены со скидкой, событие product.updated) |
+| `PATCH` | `/api/v1/admin/products/{id}` | Обновить товар (пересчёт цены со скидкой, событие product.updated); реактивация — `isActive: true` |
 | `DELETE` | `/api/v1/admin/products/{id}` | Soft delete |
 | `POST` | `/api/v1/admin/products/{id}/skus` | Создать вариант SKU `{ name, article, priceCents?, discountPercent?, stockQty }` |
 | `PATCH` | `/api/v1/admin/skus/{id}` | Обновить SKU (цена, скидка, остаток) |
 | `DELETE` | `/api/v1/admin/skus/{id}` | Деактивация SKU (не удаление) |
+
+Смысл статусов списка: `ACTIVE` — активен и не удалён; `INACTIVE` — скрыт (`isActive=false`), но восстановим; `DELETED` — мягко удалён (`deletedAt != null`). Реактивация неактивного — `PATCH { "isActive": true }`; удалённый восстанавливается только вручную оператором БД.
 
 ### Изображения
 
@@ -236,14 +243,17 @@
 
 | Метод | Путь | Описание |
 |---|---|---|
-| `GET` | `/api/v1/admin/orders` | Все заказы с фильтром по статусу (пагинация) |
-| `PATCH` | `/api/v1/admin/orders/{id}/status` | Смена статуса: `{ status }` (только по допустимым переходам, см. [05-orders.md](05-orders.md)) |
+| `GET` | `/api/v1/admin/orders` | Все заказы с фильтром по статусу (пагинация). Элемент — карточка без позиций: `{ id, number, userId, status, itemsTotalCents, deliveryCents, totalCents, customerName, customerPhone, itemCount, createdAt }` |
+| `GET` | `/api/v1/admin/orders/{id}` | Детали заказа: всё из карточки + адрес (`deliveryCity`, `deliveryAddress`), `comment`, **позиции** (`items[]` — снимки товаров) и **история статусов** (`statusHistory[]`: `status`, `byUserId`, `at`) |
+| `PATCH` | `/api/v1/admin/orders/{id}/status` | Смена статуса: `{ status }` (только по допустимым переходам); ответ — детали заказа |
+
+Оператор видит состав заказа в деталях; список остаётся лёгким (количество позиций вместо массива).
 
 ### Отзывы (модерация)
 
 | Метод | Путь | Описание |
 |---|---|---|
-| `GET` | `/api/v1/admin/reviews` | Все отзывы, фильтр `isModerated` |
+| `GET` | `/api/v1/admin/reviews` | Все отзывы, фильтр `isModerated`. Элемент обогащён данными для модерации: `{ id, userId, productId, productName, productArticle, userEmail, userFirstName, userLastName, rating, text, isModerated, createdAt }` — сырых UUID недостаточно для решения модератора |
 | `PATCH` | `/api/v1/admin/reviews/{id}/moderation` | Одобрить/скрыть: `{ isModerated: true/false }` |
 
 Скрытые отзывы не возвращаются в публичных списках и не учитываются в рейтинге.
