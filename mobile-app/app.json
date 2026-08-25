@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "porcelain-shop",
+    "scheme": "porcelainshop",
+    "slug": "porcelain-shop",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.porcelainshop"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.porcelainshop"
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:8080"
+    }
+  }
+}

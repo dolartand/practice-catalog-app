@@ -1,0 +1,3 @@
+allowBuilds:
+  react-native-nitro-modules: false
+  unrs-resolver: false

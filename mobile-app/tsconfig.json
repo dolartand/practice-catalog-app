@@ -1,0 +1,33 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "baseUrl": "./",
+    "paths": {
+      "@app/*": [
+        "src/core/*"
+      ],
+      "@pages/*": [
+        "src/pages/*"
+      ],
+      "@widgets/*": [
+        "src/widgets/*"
+      ],
+      "@features/*": [
+        "src/features/*"
+      ],
+      "@entities/*": [
+        "src/entities/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ]
+    },
+    "ignoreDeprecations": "6.0"
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ]
+}
