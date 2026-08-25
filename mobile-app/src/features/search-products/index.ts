@@ -1,0 +1,1 @@
+export { useProductSuggestions } from './lib/use-product-suggestions';
