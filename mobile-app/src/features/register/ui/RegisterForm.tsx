@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { sessionStore } from '@entities/session';
+import { useSessionStore } from '@stores/sessionStore';
 import { parseApiError } from '@shared/api';
 import { useErrorMessage , ROUTES } from '@shared/lib';
 import { FormField } from '@shared/ui';
@@ -27,7 +27,7 @@ export function RegisterForm() {
     setIsSubmitting(true);
     setError(null);
     try {
-      await sessionStore.register({ email, password, firstName, lastName, phone: phone || undefined });
+      await useSessionStore.getState().register({ email, password, firstName, lastName, phone: phone || undefined });
       router.replace(ROUTES.tabs.catalog);
     } catch (e) {
       setError(parseApiError(e));

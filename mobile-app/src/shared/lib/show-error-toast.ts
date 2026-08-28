@@ -1,7 +1,7 @@
 import { showToast } from './toast';
 
 import { parseApiError } from '@shared/api/problem-details';
-import { i18n } from '@shared/i18n';
+import i18n from '@shared/i18n/config';
 
 
 // Блок 11: единая точка, где Problem Details превращаются в понятный тост.

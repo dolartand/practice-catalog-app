@@ -1,4 +1,5 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, observe } from 'mobx';
+import { useSyncExternalStore } from 'react';
 
 
 import { orderApi } from '../api/order.api';
@@ -111,4 +112,14 @@ export class OrderStore {
     });
     return order;
   }
+}
+
+export const orderStore = new OrderStore();
+
+export function useOrderStoreSelector<T>(selector: (store: OrderStore) => T): T {
+  return useSyncExternalStore(
+    (callback) => observe(orderStore, callback),
+    () => selector(orderStore),
+    () => selector(orderStore)
+  );
 }

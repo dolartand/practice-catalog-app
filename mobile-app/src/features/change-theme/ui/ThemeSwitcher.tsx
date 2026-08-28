@@ -1,11 +1,10 @@
-import { observer } from 'mobx-react-lite';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type LayoutChangeEvent, Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { appSettingsStore, type ThemePreference } from '@shared/lib';
+import { useAppSettingsStore, type ThemePreference } from '@shared/lib';
 
 const OPTIONS: ThemePreference[] = ['light', 'dark', 'system'];
 
@@ -14,10 +13,11 @@ const CONTAINER_RADIUS = 16;
 const THUMB_RADIUS = CONTAINER_RADIUS - CONTAINER_PADDING;
 const THUMB_HEIGHT = 36;
 
-export const ThemeSwitcher = observer(() => {
+export const ThemeSwitcher = () => {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
-  const active = appSettingsStore.themePreference;
+  const active = useAppSettingsStore((s) => s.themePreference);
+  const setThemePreference = useAppSettingsStore((s) => s.setThemePreference);
   const activeIndex = OPTIONS.indexOf(active);
 
   const [segmentWidth, setSegmentWidth] = useState(0);
@@ -31,13 +31,16 @@ export const ThemeSwitcher = observer(() => {
     const totalWidth = e.nativeEvent.layout.width;
     const width = (totalWidth - CONTAINER_PADDING * 2) / OPTIONS.length;
     setSegmentWidth(width);
+    // eslint-disable-next-line react-hooks/immutability
     translateX.value = width * activeIndex;
   };
 
   useEffect(() => {
     if (segmentWidth > 0) {
+      // eslint-disable-next-line react-hooks/immutability
       translateX.value = withTiming(segmentWidth * activeIndex, { duration: 220 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex, segmentWidth]);
 
   return (
@@ -55,7 +58,7 @@ export const ThemeSwitcher = observer(() => {
         return (
           <Pressable
             key={option}
-            onPress={() => appSettingsStore.setThemePreference(option)}
+            onPress={() => setThemePreference(option)}
             style={styles.option}
           >
             <Text style={[styles.optionText, isActive && styles.optionTextActive]}>
@@ -66,7 +69,7 @@ export const ThemeSwitcher = observer(() => {
       })}
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   container: {

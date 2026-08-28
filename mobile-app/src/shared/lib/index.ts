@@ -2,7 +2,7 @@ export { hasNextPage } from './pagination';
 export { type PageEnvelope} from './pagination';
 export { formatMoney } from './money';
 export {secureStorage} from './storage/secure-storage';
-export { appSettingsStore, type ThemePreference } from './settings/app-settings.store';
+export { appSettingsStore, type ThemePreference, useAppSettingsStore } from './settings/app-settings.store';
 export { useErrorMessage } from './error-message';
 export { useEffectiveScheme } from './settings/use-effective-scheme';
 export { kvStorage } from './storage/kv-storage';

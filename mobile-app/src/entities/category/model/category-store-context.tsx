@@ -1,12 +1,11 @@
-import { createContext, useContext, useState, type PropsWithChildren } from 'react';
+import { createContext, useContext, type PropsWithChildren } from 'react';
 
-import { CategoryStore } from './category.store';
+import { CategoryStore, categoryStore, useCategoryStoreSelector } from './category.store';
 
 const CategoryStoreContext = createContext<CategoryStore | null>(null);
 
 export function CategoryStoreProvider({ children }: PropsWithChildren) {
-  const [store] = useState(() => new CategoryStore());
-  return <CategoryStoreContext.Provider value={store}>{children}</CategoryStoreContext.Provider>;
+  return <CategoryStoreContext.Provider value={categoryStore}>{children}</CategoryStoreContext.Provider>;
 }
 
 export function useCategoryStore(): CategoryStore {
@@ -14,3 +13,5 @@ export function useCategoryStore(): CategoryStore {
   if (!ctx) throw new Error('useCategoryStore must be used within CategoryStoreProvider');
   return ctx;
 }
+
+export { useCategoryStoreSelector };

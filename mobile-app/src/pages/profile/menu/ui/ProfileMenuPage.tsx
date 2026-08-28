@@ -1,13 +1,12 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Info, Package, Settings } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { sessionStore } from '@entities/session';
+import { useSessionStore } from '@stores/sessionStore';
 import { LogoutButton } from '@features/logout';
 import { ROUTES } from '@shared/lib';
 import { NavLinkRow } from '@shared/ui';
@@ -22,13 +21,12 @@ function Card({ children }: { children: ReactNode }) {
   return <View style={styles.card}>{children}</View>;
 }
 
-export const ProfileMenuPage = observer(() => {
+export const ProfileMenuPage = () => {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  const user = sessionStore.user;
+  const user = useSessionStore((s) => s.user);
   const fullName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : '';
 
   return (
@@ -74,7 +72,7 @@ export const ProfileMenuPage = observer(() => {
       </Card>
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create((theme) => ({
   container: {

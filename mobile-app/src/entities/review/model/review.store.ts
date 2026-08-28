@@ -1,4 +1,5 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, observe } from 'mobx';
+import { useSyncExternalStore } from 'react';
 
 
 import { reviewApi } from '../api/review.api';
@@ -216,3 +217,11 @@ class ReviewStore {
 }
 
 export const reviewStore = new ReviewStore();
+
+export function useReviewStore<T>(selector: (store: ReviewStore) => T): T {
+  return useSyncExternalStore(
+    (callback) => observe(reviewStore, callback),
+    () => selector(reviewStore),
+    () => selector(reviewStore)
+  );
+}

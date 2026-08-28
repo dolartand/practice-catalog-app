@@ -1,12 +1,11 @@
 import { Check, ChevronRight } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@shared/i18n';
-import { appSettingsStore } from '@shared/lib';
+import { useAppSettingsStore } from '@shared/lib/settings';
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   ru: 'Русский',
@@ -15,11 +14,12 @@ const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   zh: '中文',
 };
 
-export const LanguageSwitcher = observer(() => {
+export const LanguageSwitcher = () => {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
   const [isOpen, setIsOpen] = useState(false);
-  const current = appSettingsStore.language;
+  const current = useAppSettingsStore((s) => s.language);
+  const setLanguage = useAppSettingsStore((s) => s.setLanguage);
 
   return (
     <>
@@ -41,7 +41,7 @@ export const LanguageSwitcher = observer(() => {
                   key={lang}
                   style={styles.option}
                   onPress={() => {
-                    appSettingsStore.setLanguage(lang);
+                    setLanguage(lang);
                     setIsOpen(false);
                   }}
                 >
@@ -57,7 +57,7 @@ export const LanguageSwitcher = observer(() => {
       </Modal>
     </>
   );
-});
+}
 
 const styles = StyleSheet.create((theme) => ({
   row: {

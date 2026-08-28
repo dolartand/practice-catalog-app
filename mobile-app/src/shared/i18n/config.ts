@@ -8,7 +8,8 @@ import en from './locales/en.json';
 import ru from './locales/ru.json';
 import zh from './locales/zh.json';
 
-import { kvStorage, STORAGE_KEYS } from '@shared/lib';
+import { STORAGE_KEYS } from '@shared/lib/storage/storage-keys';
+import { kvStorage } from "@shared/lib/storage/kv-storage";
 
 export const SUPPORTED_LANGUAGES = ['ru', 'en', 'be', 'zh'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];

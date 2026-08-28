@@ -1,4 +1,5 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, observe } from 'mobx';
+import { useSyncExternalStore } from 'react';
 
 
 import { productApi } from '../api/product.api';
@@ -93,4 +94,14 @@ export class ProductStore {
   invalidateCached(id: string) {
     this.byId.delete(id);
   }
+}
+
+export const productStore = new ProductStore();
+
+export function useProductStoreSelector<T>(selector: (store: ProductStore) => T): T {
+  return useSyncExternalStore(
+    (callback) => observe(productStore, callback),
+    () => selector(productStore),
+    () => selector(productStore)
+  );
 }

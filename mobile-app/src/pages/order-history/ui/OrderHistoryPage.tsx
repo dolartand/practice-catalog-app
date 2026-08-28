@@ -1,32 +1,33 @@
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Package } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { useOrderStore, ORDER_STATUS_COLOR_KEY, type Order } from '@entities/order';
+import { useOrderStore, ORDER_STATUS_COLOR_KEY, type Order } from '@stores/orderStore';
 import { formatMoney , ROUTES } from '@shared/lib';
 
 type HistoryRow = { kind: 'header'; key: string; label: string } | { kind: 'order'; key: string; order: Order };
 
-export const OrderHistoryPage = observer(() => {
+export const OrderHistoryPage = () => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const orderStore = useOrderStore();
+  const items = useOrderStore((s) => s.items);
+  const isLoading = useOrderStore((s) => s.isLoading);
+  const error = useOrderStore((s) => s.error);
 
   useEffect(() => {
-    orderStore.fetchList();
+    useOrderStore.getState().fetchList();
   }, []);
 
   // Текущие — все не доставленные; прошлые — DELIVERED. Разделение чисто визуальное,
   // на сервере (пока) нет параметра фильтрации по статусу.
-  const currentOrders = orderStore.items.filter((order) => order.status !== 'DELIVERED');
-  const pastOrders = orderStore.items.filter((order) => order.status === 'DELIVERED');
+  const currentOrders = items.filter((order) => order.status !== 'DELIVERED');
+  const pastOrders = items.filter((order) => order.status === 'DELIVERED');
   const rows: HistoryRow[] = [
     ...(currentOrders.length > 0
       ? [{ kind: 'header' as const, key: 'header-current', label: t('order.current_section') },
@@ -38,7 +39,7 @@ export const OrderHistoryPage = observer(() => {
       : []),
   ];
 
-  if (orderStore.isLoading && orderStore.items.length === 0) {
+  if (isLoading && items.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={theme.colors.primary} />
@@ -46,7 +47,7 @@ export const OrderHistoryPage = observer(() => {
     );
   }
 
-  if (orderStore.items.length === 0) {
+  if (items.length === 0) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
         <Package size={40} color={theme.colors.textSecondary} />
@@ -60,7 +61,7 @@ export const OrderHistoryPage = observer(() => {
       data={rows}
       keyExtractor={(item) => item.key}
       contentContainerStyle={{ padding: theme.gap(1.5), paddingTop: insets.top + 12 }}
-      onEndReached={() => orderStore.fetchMore()}
+      onEndReached={() => useOrderStore.getState().fetchMore()}
       onEndReachedThreshold={0.4}
       ListHeaderComponent={
         <View style={styles.header}>
@@ -85,7 +86,7 @@ export const OrderHistoryPage = observer(() => {
       }
     />
   );
-});
+};
 
 function OrderRow({ order, locale, onPress }: { order: Order; locale: string; onPress: () => void }) {
   const { t } = useTranslation();

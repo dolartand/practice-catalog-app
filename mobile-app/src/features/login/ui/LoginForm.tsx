@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { sessionStore } from '@entities/session';
+import { useSessionStore } from '@stores/sessionStore';
 import { parseApiError } from '@shared/api';
 import { ROUTES, useErrorMessage } from '@shared/lib';
 import { FormField } from '@shared/ui';
@@ -24,7 +24,7 @@ export function LoginForm() {
     setIsSubmitting(true);
     setError(null);
     try {
-      await sessionStore.login({ email, password });
+      await useSessionStore.getState().login({ email, password });
       router.replace(ROUTES.tabs.catalog);
     } catch (e) {
       setError(parseApiError(e));

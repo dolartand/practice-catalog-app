@@ -1,13 +1,12 @@
 import { Heart } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { favoriteStore } from '@entities/favorite';
-import { sessionStore } from '@entities/session';
+import { useFavoriteStore } from '@stores/favoriteStore';
+import { useSessionStore } from '@stores/sessionStore';
 import { showErrorToast, showToast } from '@shared/lib';
 
 interface ToggleFavoriteButtonProps {
@@ -16,13 +15,12 @@ interface ToggleFavoriteButtonProps {
   size?: number;
 }
 
-export const ToggleFavoriteButton = observer(({ productId, size = 34 }: ToggleFavoriteButtonProps) => {
+export const ToggleFavoriteButton = ({ productId, size = 34 }: ToggleFavoriteButtonProps) => {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
-
-  // Читаем напрямую (не деструктурируя) — MobX отслеживает обращение к полям
-  const isActive = favoriteStore.has(productId);
-  const isPending = favoriteStore.isPending(productId);
+  const isActive = useFavoriteStore((s) => s.has(productId));
+  const isPending = useFavoriteStore((s) => s.isPending(productId));
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
 
   const pressScale = useSharedValue(1);
   // Пик «пружинки» в середине переключения 0↔1; на монтировании без анимации
@@ -48,12 +46,12 @@ export const ToggleFavoriteButton = observer(({ productId, size = 34 }: ToggleFa
 
   const handlePress = () => {
     // Каталог публичный — гость получает подсказку, навигацию не дёргаем
-    if (!sessionStore.isAuthenticated) {
+    if (!isAuthenticated) {
       showToast(t('favorite.login_required'));
       return;
     }
     // Откат при ошибке делает сам стор; понятный тост — централизованно
-    favoriteStore.toggle(productId).catch(showErrorToast);
+    useFavoriteStore.getState().toggle(productId).catch(showErrorToast);
   };
 
   return (
@@ -75,7 +73,7 @@ export const ToggleFavoriteButton = observer(({ productId, size = 34 }: ToggleFa
       </Pressable>
     </Animated.View>
   );
-});
+}
 
 ToggleFavoriteButton.displayName = 'ToggleFavoriteButton';
 

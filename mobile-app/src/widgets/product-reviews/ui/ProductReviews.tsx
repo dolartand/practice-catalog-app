@@ -1,5 +1,4 @@
 import { Star } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
@@ -8,25 +7,32 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { formatReviewDate } from '../lib/format-review-date';
 
 import type { Product } from '@entities/product';
-import { reviewStore, type PublicReview } from '@entities/review';
-import { sessionStore } from '@entities/session';
+import { useReviewStore } from '@stores/reviewStore';
+import { useSessionStore } from '@stores/sessionStore';
+import type { PublicReview, MyReview } from '@stores/reviewStore';
 import { DeleteReviewButton } from '@features/delete-review';
 import { EditReviewForm } from '@features/edit-review';
 import { WriteReviewForm } from '@features/write-review';
 import { showToast } from '@shared/lib';
 
 
-export const ProductReviews = observer(({ product }: { product: Product }) => {
+export const ProductReviews = ({ product }: { product: Product }) => {
   const { t } = useTranslation();
   const [isWriting, setIsWriting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const isLoading = useReviewStore((s) => s.isLoading);
+  const isLoadingMore = useReviewStore((s) => s.isLoadingMore);
+  const error = useReviewStore((s) => s.error);
+  const items = useReviewStore((s) => s.items);
+  const hasMore = useReviewStore((s) => s.hasMore);
+  const productId = useReviewStore((s) => s.productId);
+  const total = useReviewStore((s) => s.total);
+  const myReview = useReviewStore((s) => s.getMyReview(product.id));
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
 
   useEffect(() => {
-    reviewStore.fetch(product.id);
+    useReviewStore.getState().fetch(product.id);
   }, [product.id]);
-
-  const myReview = reviewStore.getMyReview(product.id);
-  const isAuthenticated = sessionStore.isAuthenticated;
 
   return (
     <View style={styles.container}>
@@ -55,12 +61,20 @@ export const ProductReviews = observer(({ product }: { product: Product }) => {
         <EditReviewForm review={myReview} onDone={() => setIsEditing(false)} onCancel={() => setIsEditing(false)} />
       )}
 
-      <List />
+      <List
+        isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
+        error={error}
+        items={items}
+        hasMore={hasMore}
+        productId={productId}
+        total={total}
+      />
     </View>
   );
-});
+};
 
-const Summary = observer(({ ratingAverage, ratingCount }: { ratingAverage: number; ratingCount: number }) => {
+const Summary = ({ ratingAverage, ratingCount }: { ratingAverage: number; ratingCount: number }) => {
   const { t } = useTranslation();
   if (ratingCount === 0) return null;
   return (
@@ -71,16 +85,16 @@ const Summary = observer(({ ratingAverage, ratingCount }: { ratingAverage: numbe
       </Text>
     </View>
   );
-});
+};
 
-const GuestHint = observer(() => {
+const GuestHint = () => {
   const { t } = useTranslation();
   return (
     <Pressable hitSlop={4} onPress={() => showToast(t('review.login_required'))}>
       <Text style={styles.guestHint}>{t('review.login_required')}</Text>
     </Pressable>
   );
-});
+};
 
 const Stars = ({ value }: { value: number }) => {
   const { theme } = useUnistyles();
@@ -98,7 +112,7 @@ const Stars = ({ value }: { value: number }) => {
   );
 };
 
-const StatusChip = observer(({ moderated }: { moderated: boolean }) => {
+const StatusChip = ({ moderated }: { moderated: boolean }) => {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
   const color = moderated ? theme.colors.success : theme.colors.accent;
@@ -107,9 +121,9 @@ const StatusChip = observer(({ moderated }: { moderated: boolean }) => {
       {t(moderated ? 'review.status_published' : 'review.status_pending')}
     </Text>
   );
-});
+};
 
-const MyReviewCard = observer(({ review, onEdit }: { review: ReturnType<typeof reviewStore.getMyReview> & object; onEdit: () => void }) => {
+const MyReviewCard = ({ review, onEdit }: { review: MyReview; onEdit: () => void }) => {
   const { t, i18n } = useTranslation();
 
   return (
@@ -134,7 +148,7 @@ const MyReviewCard = observer(({ review, onEdit }: { review: ReturnType<typeof r
       </View>
     </View>
   );
-});
+};
 
 const ReviewRow = ({ review, locale }: { review: PublicReview; locale: string }) => {
   const { t } = useTranslation();
@@ -150,11 +164,31 @@ const ReviewRow = ({ review, locale }: { review: PublicReview; locale: string })
   );
 };
 
-const List = observer(() => {
+const List = ({
+  isLoading,
+  isLoadingMore,
+  error,
+  items,
+  hasMore,
+  productId,
+  total,
+}: {
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  error: string | null;
+  items: PublicReview[];
+  hasMore: boolean;
+  productId: string | null;
+  total: number;
+}) => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
+  const myId = productId ? useReviewStore.getState().getMyReview(productId)?.id : undefined;
+  const visibleItems = myId
+    ? items.filter((item) => item.id !== myId)
+    : items;
 
-  if (reviewStore.isLoading && reviewStore.items.length === 0) {
+  if (isLoading && items.length === 0) {
     return (
       <View style={styles.listCentered}>
         <ActivityIndicator color={theme.colors.primary} />
@@ -162,12 +196,12 @@ const List = observer(() => {
     );
   }
 
-  if (reviewStore.error && reviewStore.items.length === 0) {
+  if (error && items.length === 0) {
     return (
       <View style={styles.listCentered}>
-        <Text style={styles.emptyText}>{t(`errors.${reviewStore.error}`)}</Text>
-        {reviewStore.productId && (
-          <Pressable onPress={() => reviewStore.fetch(reviewStore.productId!)}>
+        <Text style={styles.emptyText}>{t(`errors.${error}`)}</Text>
+        {productId && (
+          <Pressable onPress={() => useReviewStore.getState().fetch(productId!)}>
             <Text style={styles.showMore}>{t('common.retry')}</Text>
           </Pressable>
         )}
@@ -175,14 +209,8 @@ const List = observer(() => {
     );
   }
 
-  // Свой отзыв уже показан карточкой выше — в общем списке не дублируем
-  const myId = reviewStore.productId ? reviewStore.getMyReview(reviewStore.productId)?.id : undefined;
-  const visibleItems = myId
-    ? reviewStore.items.filter((item) => item.id !== myId)
-    : reviewStore.items;
-
   if (visibleItems.length === 0 && !myId) {
-    if (reviewStore.total === 0 && !reviewStore.error) {
+    if (total === 0 && !error) {
       return <Text style={styles.emptyText}>{t('review.empty')}</Text>;
     }
     return null;
@@ -194,9 +222,9 @@ const List = observer(() => {
         <ReviewRow key={review.id} review={review} locale={i18n.language} />
       ))}
 
-      {reviewStore.hasMore && (
-        <Pressable style={({ pressed }) => [styles.showMoreButton, pressed && { opacity: 0.8 }]} onPress={() => reviewStore.fetchMore()}>
-          {reviewStore.isLoadingMore ? (
+      {hasMore && (
+        <Pressable style={({ pressed }) => [styles.showMoreButton, pressed && { opacity: 0.8 }]} onPress={() => useReviewStore.getState().fetchMore()}>
+          {isLoadingMore ? (
             <ActivityIndicator color={theme.colors.primary} />
           ) : (
             <Text style={styles.showMore}>{t('review.show_more')}</Text>
@@ -205,7 +233,7 @@ const List = observer(() => {
       )}
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   container: {

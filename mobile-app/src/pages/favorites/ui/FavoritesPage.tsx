@@ -1,6 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Heart, HeartOff } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,28 +13,33 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { favoriteStore } from '@entities/favorite';
+import { useFavoriteStore } from '@stores/favoriteStore';
 import { ProductCard, ProductCardSkeleton } from '@entities/product';
 import { ToggleFavoriteButton } from '@features/toggle-favorite';
 import { ROUTES } from '@shared/lib';
 
 const SKELETON_COUNT = 4;
 
-export const FavoritesPage = observer(() => {
+export const FavoritesPage = () => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const items = useFavoriteStore((s) => s.items);
+  const isLoading = useFavoriteStore((s) => s.isLoading);
+  const isLoadingMore = useFavoriteStore((s) => s.isLoadingMore);
+  const error = useFavoriteStore((s) => s.error);
+  const hasMore = useFavoriteStore((s) => s.hasMore);
 
   // Обновляем при каждом возврате на экран (после тогглов из каталога/детальной
   // сервер уже знает актуальный список) + при первом открытии
   useFocusEffect(
     useCallback(() => {
-      favoriteStore.fetch();
+      useFavoriteStore.getState().fetch();
     }, []),
   );
 
-  if (favoriteStore.isLoading && favoriteStore.items.length === 0) {
+  if (isLoading && items.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <ListHeader />
@@ -51,14 +55,14 @@ export const FavoritesPage = observer(() => {
     );
   }
 
-  if (favoriteStore.error && favoriteStore.items.length === 0) {
+  if (error && items.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <ListHeader />
         <View style={styles.centered}>
           <HeartOff size={40} color={theme.colors.textSecondary} />
-          <Text style={styles.centeredText}>{t(`errors.${favoriteStore.error}`)}</Text>
-          <Pressable onPress={() => favoriteStore.fetch()}>
+          <Text style={styles.centeredText}>{t(`errors.${error}`)}</Text>
+          <Pressable onPress={() => useFavoriteStore.getState().fetch()}>
             <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
         </View>
@@ -66,7 +70,7 @@ export const FavoritesPage = observer(() => {
     );
   }
 
-  if (favoriteStore.items.length === 0) {
+  if (items.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <ListHeader />
@@ -88,7 +92,7 @@ export const FavoritesPage = observer(() => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={favoriteStore.items}
+        data={items}
         keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
@@ -101,11 +105,11 @@ export const FavoritesPage = observer(() => {
             action={<ToggleFavoriteButton productId={item.id} />}
           />
         )}
-        onEndReached={() => favoriteStore.fetchMore()}
+        onEndReached={() => useFavoriteStore.getState().fetchMore()}
         onEndReachedThreshold={0.4}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={
-          favoriteStore.isLoadingMore ? (
+          isLoadingMore ? (
             <View style={styles.footer}>
               <ActivityIndicator color={theme.colors.primary} />
             </View>
@@ -113,8 +117,8 @@ export const FavoritesPage = observer(() => {
         }
         refreshControl={
           <RefreshControl
-            refreshing={favoriteStore.isLoading}
-            onRefresh={() => favoriteStore.fetch()}
+            refreshing={isLoading}
+            onRefresh={() => useFavoriteStore.getState().fetch()}
             tintColor={theme.colors.primary}
           />
         }
@@ -124,9 +128,9 @@ export const FavoritesPage = observer(() => {
       />
     </View>
   );
-});
+};
 
-const ListHeader = observer(() => {
+const ListHeader = () => {
   const { t } = useTranslation();
 
   // Корень таба: без back-кнопки, крупный заголовок в стиле современных шопов
@@ -135,7 +139,7 @@ const ListHeader = observer(() => {
       <Text style={styles.title}>{t('favorite.title')}</Text>
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },

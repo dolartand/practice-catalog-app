@@ -1,4 +1,5 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, observe } from 'mobx';
+import { useSyncExternalStore } from 'react';
 
 import { categoryApi } from '../api/category.api';
 
@@ -65,4 +66,14 @@ export class CategoryStore {
     if (id === null) return this.tree;
     return this.flatIndex.get(id)?.node.children ?? [];
   }
+}
+
+export const categoryStore = new CategoryStore();
+
+export function useCategoryStoreSelector<T>(selector: (store: CategoryStore) => T): T {
+  return useSyncExternalStore(
+    (callback) => observe(categoryStore, callback),
+    () => selector(categoryStore),
+    () => selector(categoryStore)
+  );
 }

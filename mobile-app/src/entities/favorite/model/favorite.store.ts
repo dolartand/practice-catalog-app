@@ -1,4 +1,5 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, observe } from 'mobx';
+import { useSyncExternalStore } from 'react';
 
 import { favoriteApi } from '../api/favorite.api';
 
@@ -226,3 +227,11 @@ class FavoriteStore {
 }
 
 export const favoriteStore = new FavoriteStore();
+
+export function useFavoriteStore<T>(selector: (store: FavoriteStore) => T): T {
+  return useSyncExternalStore(
+    (callback) => observe(favoriteStore, callback),
+    () => selector(favoriteStore),
+    () => selector(favoriteStore)
+  );
+}

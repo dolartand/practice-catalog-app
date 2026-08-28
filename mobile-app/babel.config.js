@@ -15,6 +15,7 @@ module.exports = function (api) {
             '@features': './src/features',
             '@entities': './src/entities',
             '@shared': './src/shared',
+            '@stores': './src/stores',
           },
           extensions: ['.ios.ts', '.android.ts', '.ts', '.ios.tsx', '.android.tsx', '.tsx', '.jsx', '.js', '.json'],
         },

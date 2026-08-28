@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { sessionStore } from '@entities/session';
+import { useSessionStore } from '@stores/sessionStore';
 import { parseApiError, type AppError } from '@shared/api';
 import { showToast } from '@shared/lib';
 import { FormField } from '@shared/ui';
@@ -16,7 +16,7 @@ export function EditProfileForm() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const user = sessionStore.user;
+  const user = useSessionStore.getState().user;
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
   const [lastName, setLastName] = useState(user?.lastName ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
@@ -47,7 +47,7 @@ export function EditProfileForm() {
 
     setIsSubmitting(true);
     try {
-      await sessionStore.updateProfile({
+      await useSessionStore.getState().updateProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim() || null,

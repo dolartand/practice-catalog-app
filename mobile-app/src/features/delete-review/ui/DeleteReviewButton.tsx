@@ -1,10 +1,9 @@
 import { Trash2 } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { isReviewGone, reviewStore } from '@entities/review';
+import { isReviewGone, reviewStore, useReviewStore } from '@entities/review';
 import { showToast } from '@shared/lib';
 
 interface DeleteReviewButtonProps {
@@ -12,10 +11,10 @@ interface DeleteReviewButtonProps {
   onDeleted: () => void;
 }
 
-export const DeleteReviewButton = observer(({ productId, onDeleted }: DeleteReviewButtonProps) => {
+export const DeleteReviewButton = ({ productId, onDeleted }: DeleteReviewButtonProps) => {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
-  const isDeleting = reviewStore.isDeleting(productId);
+  const isDeleting = useReviewStore((s) => s.isDeleting(productId));
 
   const confirmAndDelete = () => {
     Alert.alert(t('review.delete_confirm_title'), t('review.delete_confirm_message'), [
@@ -54,7 +53,7 @@ export const DeleteReviewButton = observer(({ productId, onDeleted }: DeleteRevi
       <Text style={[styles.text, { color: theme.colors.danger }]}>{t('review.delete_action')}</Text>
     </Pressable>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   button: {

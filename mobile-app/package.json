@@ -1,7 +1,7 @@
 {
   "name": "porcelain-shop",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "./entry.tsx",
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
@@ -40,8 +40,10 @@
     "react-native-nitro-modules": "0.36.1",
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.2",
-    "react-native-unistyles": "^3.0.0"
+    "react-native-screens": "^4.27.0",
+    "react-native-svg": "^15.15.5",
+    "react-native-unistyles": "^3.0.0",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",

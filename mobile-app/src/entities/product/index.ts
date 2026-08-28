@@ -8,8 +8,8 @@ export type {
   ProductsPage,
 } from './model/types';
 
-export { ProductStore } from './model/product.store';
-export { ProductStoresProvider, useProductStore } from './model/product-store-context';
+export { ProductStore, productStore } from './model/product.store';
+export { ProductStoresProvider, useProductStore, useProductStoreSelector } from './model/product-store-context';
 export { productApi } from './api/product.api';
 export { ProductCard } from './ui/ProductCard';
 export { ProductCardSkeleton } from './ui/ProductCardSkeleton';

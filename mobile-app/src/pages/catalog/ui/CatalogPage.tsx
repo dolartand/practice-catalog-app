@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import { Menu, SlidersHorizontal, X } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { useCategoryStore, type CategoryNode } from '@entities/category';
-import { useProductStore } from '@entities/product';
+import { useCategoryStore } from '@stores/categoryStore';
+import { useProductStore } from '@stores/productStore';
+import type { CategoryNode } from '@stores/categoryStore';
 import { EMPTY_DRAFT, draftToParams, countActiveFilters, type FiltersDraft } from '@features/filter-products';
 import { ToggleFavoriteButton } from '@features/toggle-favorite';
 import { ROUTES } from '@shared/lib';
@@ -18,13 +18,16 @@ import { ProductGrid } from '@widgets/product-catalog/ui/ProductGrid';
 import { SearchBar } from '@widgets/search-bar/ui/SearchBar';
 
 
-export const CatalogPage = observer(() => {
+export const CatalogPage = () => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const productStore = useProductStore();
-  const categoryStore = useCategoryStore();
+  const list = useProductStore((s) => s.list);
+  const isLoading = useProductStore((s) => s.isLoading);
+  const isLoadingMore = useProductStore((s) => s.isLoadingMore);
+  const error = useProductStore((s) => s.error);
+  const tree = useCategoryStore((s) => s.tree);
 
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -33,20 +36,20 @@ export const CatalogPage = observer(() => {
   const activeFiltersCount = countActiveFilters(filtersDraft);
 
   useEffect(() => {
-    productStore.fetchList();
-    categoryStore.fetchTree();
+    useProductStore.getState().fetchList();
+    useCategoryStore.getState().fetchTree();
   }, []);
 
   const handleSelectCategory = (node: CategoryNode | null) => {
     setSelectedCategory(node);
     setDrawerVisible(false);
-  productStore.fetchList({ categoryId: node?.id, ...draftToParams(filtersDraft) });
+  useProductStore.getState().fetchList({ categoryId: node?.id, ...draftToParams(filtersDraft) });
   };
 
   const handleApplyFilters = (draft: FiltersDraft) => {
     setFiltersDraft(draft);
     setFiltersVisible(false);
-    productStore.fetchList({ categoryId: selectedCategory?.id, ...draftToParams(draft) });
+    useProductStore.getState().fetchList({ categoryId: selectedCategory?.id, ...draftToParams(draft) });
   };
 
   const handleProductPress = (id: string) => router.push(ROUTES.product(id));
@@ -62,7 +65,7 @@ export const CatalogPage = observer(() => {
           </Pressable>
 
           <SearchBar
-            onSubmit={(query) => productStore.fetchList({ q: query, categoryId: selectedCategory?.id })}
+            onSubmit={(query) => useProductStore.getState().fetchList({ q: query, categoryId: selectedCategory?.id })}
             onSuggestionPress={handleProductPress}
             locale={i18n.language}
           />
@@ -88,14 +91,14 @@ export const CatalogPage = observer(() => {
       </View>
 
       <ProductGrid
-        products={productStore.list}
-        isLoading={productStore.isLoading}
-        isLoadingMore={productStore.isLoadingMore}
-        error={productStore.error}
+        products={list}
+        isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
+        error={error}
         locale={i18n.language}
-        onEndReached={() => productStore.fetchMore()}
+        onEndReached={() => useProductStore.getState().fetchMore()}
         onProductPress={handleProductPress}
-        onRetry={() => productStore.fetchList({ categoryId: selectedCategory?.id })}
+        onRetry={() => useProductStore.getState().fetchList({ categoryId: selectedCategory?.id })}
         renderItemAction={(product) => renderFavoriteAction(product.id)}
       />
 
@@ -108,14 +111,14 @@ export const CatalogPage = observer(() => {
 
       <CategoryDrawer
         visible={drawerVisible}
-        tree={categoryStore.tree}
+        tree={tree}
         selectedId={selectedCategory?.id ?? null}
         onSelect={handleSelectCategory}
         onClose={() => setDrawerVisible(false)}
       />
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },

@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { useOrderStore, ORDER_STATUS_COLOR_KEY, type Order } from '@entities/order';
+import { useOrderStore, ORDER_STATUS_COLOR_KEY, type Order } from '@stores/orderStore';
 import { formatMoney } from '@shared/lib';
 import { OrderCreatedBanner } from '@widgets/order-created-banner';
 
@@ -18,13 +18,13 @@ export function OrderDetailPage() {
   const insets = useSafeAreaInsets();
   const orderStore = useOrderStore();
 
-  const [order, setOrder] = useState<Order | null>(orderStore.getCachedById(orderId) ?? null);
+  const [order, setOrder] = useState<Order | null>(useOrderStore.getState().getCachedById(orderId) ?? null);
   const [isLoading, setIsLoading] = useState(!order);
   const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (order) return;
-    orderStore.fetchOne(orderId).then(setOrder).finally(() => setIsLoading(false));
+    useOrderStore.getState().fetchOne(orderId).then(setOrder).finally(() => setIsLoading(false));
   }, [orderId]);
 
   const handleCancel = () => {
@@ -36,7 +36,7 @@ export function OrderDetailPage() {
         onPress: async () => {
           setIsCancelling(true);
           try {
-            const updated = await orderStore.cancel(orderId);
+            const updated = await useOrderStore.getState().cancel(orderId);
             setOrder(updated);
           } finally {
             setIsCancelling(false);

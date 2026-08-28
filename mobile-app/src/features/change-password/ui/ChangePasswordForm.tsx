@@ -6,7 +6,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import { ChangePasswordSuccess } from './ChangePasswordSuccess';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 
-import { sessionStore } from '@entities/session';
+import { useSessionStore } from '@stores/sessionStore';
 import { parseApiError, type AppError } from '@shared/api';
 import { useErrorMessage } from '@shared/lib';
 import { PasswordField } from '@shared/ui';
@@ -36,7 +36,7 @@ export function ChangePasswordForm({ onFinished }: { onFinished: () => void }) {
     setIsSubmitting(true);
 
     try {
-      await sessionStore.changePassword({ currentPassword, newPassword, newPasswordConfirm });
+      await useSessionStore.getState().changePassword({ currentPassword, newPassword, newPasswordConfirm });
       setIsSuccess(true);
     } catch (e) {
       setError(parseApiError(e));

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, Text } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { cartStore } from '@entities/cart';
+import { useCartStore } from '@stores/cartStore';
 import { showErrorToast } from '@shared/lib';
 
 interface AddToCartButtonProps {
@@ -20,7 +20,7 @@ export function AddToCartButton({ skuId, disabled }: AddToCartButtonProps) {
     if (!skuId) return;
     setIsSubmitting(true);
     try {
-      await cartStore.addItem(skuId, 1);
+      await useCartStore.getState().addItem(skuId, 1);
     } catch (e) {
       // Блок 11: ошибки больше не молчат — централизованный понятный тост
       showErrorToast(e);

@@ -1,36 +1,41 @@
 import { useRouter } from 'expo-router';
 import { ShoppingCart } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { cartStore, type CartItem } from '@entities/cart';
+import { useCartStore } from '@stores/cartStore';
+import type { CartItem } from '@entities/cart/model/types';
 import { formatMoney, showErrorToast , ROUTES } from '@shared/lib';
 import { CartItemRow } from '@widgets/cart-item';
 
 
-export const CartPage = observer(() => {
+export const CartPage = () => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const items = useCartStore((s) => s.items);
+  const isLoading = useCartStore((s) => s.isLoading);
+  const totalCents = useCartStore((s) => s.totalCents);
+  const hasUnavailableItems = useCartStore((s) => s.hasUnavailableItems);
+  const pendingItemIds = useCartStore((s) => s.pendingItemIds);
 
   useEffect(() => {
-    cartStore.fetch();
+    useCartStore.getState().fetch();
   }, []);
 
   const handleQuantityChange = useCallback((item: CartItem, quantity: number) => {
     if (quantity <= 0) {
-      cartStore.removeItem(item.id).catch(showErrorToast);
+      useCartStore.getState().removeItem(item.id).catch(showErrorToast);
     } else {
-      cartStore.updateQuantity(item.id, quantity).catch(showErrorToast);
+      useCartStore.getState().updateQuantity(item.id, quantity).catch(showErrorToast);
     }
   }, []);
 
-  if (cartStore.isLoading && cartStore.items.length === 0) {
+  if (isLoading && items.length === 0) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator color={theme.colors.primary} />
@@ -38,7 +43,7 @@ export const CartPage = observer(() => {
     );
   }
 
-  if (cartStore.items.length === 0) {
+  if (items.length === 0) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
         <ShoppingCart size={40} color={theme.colors.textSecondary} />
@@ -50,34 +55,34 @@ export const CartPage = observer(() => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={cartStore.items}
+        data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingTop: insets.top + 12 }]}
-        refreshControl={<RefreshControl refreshing={cartStore.isLoading} onRefresh={() => cartStore.fetch()} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => useCartStore.getState().fetch()} />}
         ListHeaderComponent={<Text style={styles.title}>{t('cart.title')}</Text>}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         renderItem={({ item }) => (
           <CartItemRow
             item={item}
             locale={i18n.language}
-            isPending={cartStore.pendingItemIds.has(item.id)}
+            isPending={pendingItemIds.has(item.id)}
             onQuantityChange={(q) => handleQuantityChange(item, q)}
-            onRemove={() => cartStore.removeItem(item.id).catch(showErrorToast)}
+            onRemove={() => useCartStore.getState().removeItem(item.id).catch(showErrorToast)}
           />
         )}
       />
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        {cartStore.hasUnavailableItems && (
+        {hasUnavailableItems && (
           <Text style={styles.unavailableWarning}>{t('cart.unavailable_warning')}</Text>
         )}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>{t('cart.total')}</Text>
-          <Text style={styles.totalValue}>{formatMoney(cartStore.totalCents, i18n.language)}</Text>
+          <Text style={styles.totalValue}>{formatMoney(totalCents, i18n.language)}</Text>
         </View>
         <Pressable
-          style={[styles.checkoutButton, cartStore.hasUnavailableItems && styles.checkoutButtonDisabled]}
-          disabled={cartStore.hasUnavailableItems}
+          style={[styles.checkoutButton, hasUnavailableItems && styles.checkoutButtonDisabled]}
+          disabled={hasUnavailableItems}
           onPress={() => router.push(ROUTES.checkout)}
         >
           <Text style={styles.checkoutText}>{t('cart.checkout')}</Text>
@@ -85,7 +90,7 @@ export const CartPage = observer(() => {
       </View>
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },

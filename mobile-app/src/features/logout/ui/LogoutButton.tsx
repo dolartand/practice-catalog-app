@@ -1,13 +1,12 @@
 import { LogOut } from 'lucide-react-native';
-import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { sessionStore } from '@entities/session';
+import { useSessionStore } from '@stores/sessionStore';
 
-export const LogoutButton = observer(() => {
+export const LogoutButton = () => {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,11 +20,8 @@ export const LogoutButton = observer(() => {
         onPress: async () => {
           setIsSubmitting(true);
           try {
-            // forceLogout в finally сбросит сессию даже при сетевой ошибке;
-            // локальные данные (корзина/избранное/мои отзывы) чистят bootstrap-reaction
-            await sessionStore.logout();
+            await useSessionStore.getState().logout();
           } catch {
-            // сессия уже очищена — молча выходим
           } finally {
             setIsSubmitting(false);
           }
@@ -34,24 +30,27 @@ export const LogoutButton = observer(() => {
     ]);
   };
 
+  const buttonStyle = [styles.button];
+  const content = isSubmitting ? (
+    <ActivityIndicator color={theme.colors.danger} />
+  ) : (
+    <>
+      <LogOut size={19} color={theme.colors.danger} />
+      <Text style={[styles.text, { color: theme.colors.danger }]}>{t('auth.logout')}</Text>
+    </>
+  );
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }, isSubmitting && styles.deleting]}
+      style={({ pressed }) => [...buttonStyle, pressed && { opacity: 0.7 }, isSubmitting && styles.deleting]}
       onPress={confirmAndLogout}
       disabled={isSubmitting}
       accessibilityRole="button"
     >
-      {isSubmitting ? (
-        <ActivityIndicator color={theme.colors.danger} />
-      ) : (
-        <>
-          <LogOut size={19} color={theme.colors.danger} />
-          <Text style={[styles.text, { color: theme.colors.danger }]}>{t('auth.logout')}</Text>
-        </>
-      )}
+      {content}
     </Pressable>
   );
-});
+};
 
 const styles = StyleSheet.create((theme) => ({
   button: {

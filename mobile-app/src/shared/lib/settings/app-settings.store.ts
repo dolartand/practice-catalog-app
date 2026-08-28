@@ -1,5 +1,6 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, observe } from 'mobx';
 import { UnistylesRuntime } from 'react-native-unistyles';
+import { useSyncExternalStore } from 'react';
 
 import i18n, { setAppLanguage, type SupportedLanguage } from '@shared/i18n/config';
 import { kvStorage } from '@shared/lib/storage/kv-storage';
@@ -45,7 +46,12 @@ class AppSettingsStore {
     }
 }
 
-// Инфраструктурный singleton — в отличие от доменных сторов (product/cart),
-// которым в будущем нужен React Context для тестируемости/изоляции,
-// сквозные app-wide настройки как тема/язык это оправданно упрощает.
 export const appSettingsStore = new AppSettingsStore();
+
+export function useAppSettingsStore<T>(selector: (store: AppSettingsStore) => T): T {
+    return useSyncExternalStore(
+        (callback) => observe(appSettingsStore, callback),
+        () => selector(appSettingsStore),
+        () => selector(appSettingsStore)
+    );
+}

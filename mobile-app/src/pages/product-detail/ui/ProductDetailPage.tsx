@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { useProductStore, resolveSkuPrice, type Product, type ProductSku } from '@entities/product';
+import { useProductStore, resolveSkuPrice, type Product, type ProductSku } from '@stores/productStore';
 import { AddToCartButton } from '@features/add-to-cart';
 import { ToggleFavoriteButton } from '@features/toggle-favorite';
 import { parseApiError, type AppError } from '@shared/api';
@@ -37,7 +37,7 @@ export function ProductDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const result = await productStore.fetchOne(productId);
+        const result = await useProductStore.getState().fetchOne(productId);
         if (isCancelled) return;
         setProduct(result);
 

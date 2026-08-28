@@ -5,15 +5,15 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { getLastContact, saveLastContact } from '../lib/last-contact-storage';
 
-import { cartStore } from '@entities/cart';
-import { useOrderStore, type Order } from '@entities/order';
+import { useCartStore } from '@stores/cartStore';
+import { useOrderStore, type Order } from '@stores/orderStore';
 import { parseApiError, type AppError, type StockIssue } from '@shared/api/problem-details';
 import { useErrorMessage } from '@shared/lib/error-message';
 import { FormField } from '@shared/ui/form-field/FormField';
 
 
 function resolveIssueName(skuId: string): string | null {
-  const cartItem = cartStore.items.find((item) => item.skuId === skuId);
+  const cartItem = useCartStore.getState().items.find((item) => item.skuId === skuId);
   if (!cartItem) return null;
   return [cartItem.productName, cartItem.skuName].filter(Boolean).join(' · ');
 }
@@ -65,7 +65,7 @@ export function CheckoutForm({ onCreated }: { onCreated: (order: Order) => void 
       });
 
       saveLastContact({ customerName, customerPhone, deliveryCity, deliveryAddress });
-      cartStore.reset(); // сервер уже очистил корзину при оформлении — синхронизируем локально без лишнего похода на /cart
+      useCartStore.getState().reset(); // сервер уже очистил корзину при оформлении — синхронизируем локально без лишнего похода на /cart
 
       onCreated(order);
     } catch (e) {
@@ -73,7 +73,7 @@ export function CheckoutForm({ onCreated }: { onCreated: (order: Order) => void 
       setError(parsed);
       // Бэкенд при 422 помечает проблемные позиции в корзине — подтягиваем актуальные флаги unavailable
       if (parsed.kind === 'api' && parsed.stockIssues) {
-        void cartStore.fetch();
+        void useCartStore.getState().fetch();
       }
     } finally {
       setIsSubmitting(false);
