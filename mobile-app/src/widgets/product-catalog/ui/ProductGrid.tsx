@@ -94,7 +94,6 @@ export function ProductGrid({
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
       ListFooterComponent={renderFooter}
-      removeClippedSubviews
       maxToRenderPerBatch={8}
       windowSize={7}
     />

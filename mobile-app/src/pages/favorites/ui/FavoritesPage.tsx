@@ -122,7 +122,6 @@ export const FavoritesPage = () => {
             tintColor={theme.colors.primary}
           />
         }
-        removeClippedSubviews
         maxToRenderPerBatch={8}
         windowSize={7}
       />
