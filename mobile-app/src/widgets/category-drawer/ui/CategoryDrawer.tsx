@@ -40,7 +40,7 @@ export function CategoryDrawer({ visible, tree, selectedId, onSelect, onClose }:
   // Drawer остаётся смонтированным всегда (не под условным рендером) —
   // так анимация закрытия успевает доиграть
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={visible ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, styles.root]} pointerEvents={visible ? 'auto' : 'none'}>
       <Animated.View style={[styles.backdrop, backdropStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
@@ -79,6 +79,7 @@ export function CategoryDrawer({ visible, tree, selectedId, onSelect, onClose }:
 }
 
 const styles = StyleSheet.create((theme) => ({
+  root: { zIndex: 50, elevation: 20 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
   panel: {
     position: 'absolute',
@@ -90,7 +91,7 @@ const styles = StyleSheet.create((theme) => ({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     shadowOffset: { width: 4, height: 0 },
-    elevation: 8,
+    elevation: 21,
   },
   header: {
     flexDirection: 'row',
