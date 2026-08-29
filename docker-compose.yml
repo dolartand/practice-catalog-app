@@ -89,6 +89,24 @@ services:
       echo 'bucket catalog-images ready'"
     restart: "no"
 
+  # Одноразовая заливка seed-изображений из scripts/seed/catalog-images.
+  # Запуск: docker compose run --rm minio-upload-images  (или scripts/upload-seed-images.sh)
+  minio-upload-images:
+    image: minio/mc:latest
+    depends_on:
+      - minio-init
+    volumes:
+      - ./scripts/seed/catalog-images:/src:ro
+    entrypoint: >
+      sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin >/dev/null 2>&1; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      mc mirror --overwrite /src/products local/catalog-images/products &&
+      mc anonymous set download local/catalog-images &&
+      echo 'seed images uploaded to catalog-images'"
+    restart: "no"
+
 volumes:
   pgdata:
   redisdata:
