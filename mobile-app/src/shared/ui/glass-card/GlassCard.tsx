@@ -31,7 +31,7 @@ export function GlassCard({ children, style }: GlassCardProps) {
             <BlurView
                 intensity={40}
                 tint="light"
-                experimentalBlurMethod="dimezisBlurView" // на Android даёт настоящий блюр, а не имитацию
+                // experimentalBlurMethod="dimezisBlurView" // на Android даёт настоящий блюр, а не имитацию
                 style={StyleSheet.absoluteFill}
             />
             <View style={styles.content}>{children}</View>

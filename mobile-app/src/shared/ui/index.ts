@@ -6,3 +6,4 @@ export { NavLinkRow } from './nav-link-row/NavLinkRow';
 export { SegmentedToggle } from './segmented-toggle/SegmentedToggle';
 export { ToastHost } from './toast/ToastHost';
 export { StarRatingInput } from './star-rating-input/StarRatingInput';
+export { AuthPlaceholder } from './auth-placeholder/AuthPlaceholder';
