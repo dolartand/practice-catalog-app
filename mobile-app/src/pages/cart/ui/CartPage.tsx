@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { ShoppingCart } from 'lucide-react-native';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,11 @@ import type { CartItem } from '@entities/cart/model/types';
 import { formatMoney, showErrorToast , ROUTES } from '@shared/lib';
 import { CartItemRow } from '@widgets/cart-item';
 
+const Separator = () => <View style={styles.separator} />;
+
+const CartHeader = ({ title }: { title: string }) => (
+  <Text style={styles.title}>{title}</Text>
+);
 
 export const CartPage = () => {
   const { t, i18n } = useTranslation();
@@ -35,6 +40,16 @@ export const CartPage = () => {
     }
   }, []);
 
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isLoading}
+        onRefresh={() => useCartStore.getState().fetch()}
+      />
+    ),
+    [isLoading],
+  );
+
   if (isLoading && items.length === 0) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
@@ -58,9 +73,9 @@ export const CartPage = () => {
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingTop: insets.top + 12 }]}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => useCartStore.getState().fetch()} />}
-        ListHeaderComponent={<Text style={styles.title}>{t('cart.title')}</Text>}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        refreshControl={refreshControl}
+        ListHeaderComponent={() => <CartHeader title={t('cart.title')} />}
+        ItemSeparatorComponent={Separator}
         renderItem={({ item }) => (
           <CartItemRow
             item={item}
@@ -96,6 +111,7 @@ const styles = StyleSheet.create((theme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },
   list: { paddingHorizontal: theme.gap(1.5), paddingBottom: 160 },
   title: { fontSize: 24, fontWeight: '700', color: theme.colors.text, marginBottom: theme.gap(2) },
+  separator: { height: 12 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.gap(1.5), backgroundColor: theme.colors.background },
   emptyText: { color: theme.colors.textSecondary, fontSize: 15 },
   footer: {

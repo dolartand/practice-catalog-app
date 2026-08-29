@@ -11,6 +11,8 @@ import { formatMoney , ROUTES } from '@shared/lib';
 
 type HistoryRow = { kind: 'header'; key: string; label: string } | { kind: 'order'; key: string; order: Order };
 
+const Separator = () => <View style={{ height: 12 }} />;
+
 export const OrderHistoryPage = () => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
@@ -63,7 +65,7 @@ export const OrderHistoryPage = () => {
       contentContainerStyle={{ padding: theme.gap(1.5), paddingTop: insets.top + 12 }}
       onEndReached={() => useOrderStore.getState().fetchMore()}
       onEndReachedThreshold={0.4}
-      ListHeaderComponent={
+      ListHeaderComponent={() => (
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={8}>
             <ChevronLeft size={24} color={theme.colors.text} />
@@ -71,8 +73,8 @@ export const OrderHistoryPage = () => {
           <Text style={styles.title}>{t('order.history_title')}</Text>
           <View style={{ width: 24 }} />
         </View>
-      }
-      ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+      )}
+      ItemSeparatorComponent={Separator}
       renderItem={({ item }) =>
         item.kind === 'header' ? (
           <Text style={styles.sectionTitle}>{item.label}</Text>

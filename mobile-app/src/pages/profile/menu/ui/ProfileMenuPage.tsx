@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, Info, Package, Settings } from 'lucide-react-native';
+import { ChevronRight, Info, Package, Settings, LogIn } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
@@ -28,12 +28,18 @@ export const ProfileMenuPage = () => {
   const insets = useSafeAreaInsets();
   const user = useSessionStore((s) => s.user);
   const fullName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : '';
+  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
 
-  return (
+    const goToAccount = () =>
+        router.push(isAuthenticated ? ROUTES.profile.edit : ROUTES.auth.login);
+    const goToOrders = () =>
+        router.push(isAuthenticated ? ROUTES.profile.orders : ROUTES.auth.login);
+
+    return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <Text style={styles.title}>{t('tabs.profile')}</Text>
 
-      <Pressable style={styles.userCard} onPress={() => router.push(ROUTES.profile.edit)}>
+      <Pressable style={styles.userCard} onPress={goToAccount}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {user ? initials(user.firstName, user.lastName) : '?'}
@@ -50,7 +56,7 @@ export const ProfileMenuPage = () => {
         <NavLinkRow
           icon={Package}
           label={t('order.history_link')}
-          onPress={() => router.push(ROUTES.profile.orders)}
+          onPress={goToOrders}
         />
         <NavLinkRow
           icon={Settings}
@@ -68,7 +74,15 @@ export const ProfileMenuPage = () => {
       </Card>
 
       <Card>
-        <LogoutButton />
+          {isAuthenticated ? (
+              <LogoutButton />
+          ) : (
+              <NavLinkRow
+                  icon={LogIn}
+                  label={t('auth.login_submit')}
+                  onPress={() => router.push(ROUTES.auth.login)}
+              />
+          )}
       </Card>
     </View>
   );

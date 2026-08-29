@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Heart, HeartOff } from 'lucide-react-native';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -20,6 +20,29 @@ import { ROUTES } from '@shared/lib';
 
 const SKELETON_COUNT = 4;
 
+const ListHeader = () => {
+  const { t } = useTranslation();
+
+  // Корень таба: без back-кнопки, крупный заголовок в стиле современных шопов
+  return (
+    <View style={styles.header}>
+      <Text style={styles.title}>{t('favorite.title')}</Text>
+    </View>
+  );
+};
+
+const ListFooter = () => {
+  const { theme } = useUnistyles();
+  const isLoadingMore = useFavoriteStore((s) => s.isLoadingMore);
+
+  if (!isLoadingMore) return null;
+  return (
+    <View style={styles.footer}>
+      <ActivityIndicator color={theme.colors.primary} />
+    </View>
+  );
+};
+
 export const FavoritesPage = () => {
   const { t, i18n } = useTranslation();
   const { theme } = useUnistyles();
@@ -27,7 +50,6 @@ export const FavoritesPage = () => {
   const insets = useSafeAreaInsets();
   const items = useFavoriteStore((s) => s.items);
   const isLoading = useFavoriteStore((s) => s.isLoading);
-  const isLoadingMore = useFavoriteStore((s) => s.isLoadingMore);
   const error = useFavoriteStore((s) => s.error);
   const hasMore = useFavoriteStore((s) => s.hasMore);
 
@@ -37,6 +59,17 @@ export const FavoritesPage = () => {
     useCallback(() => {
       useFavoriteStore.getState().fetch();
     }, []),
+  );
+
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={isLoading}
+        onRefresh={() => useFavoriteStore.getState().fetch()}
+        tintColor={theme.colors.primary}
+      />
+    ),
+    [isLoading, theme.colors.primary],
   );
 
   if (isLoading && items.length === 0) {
@@ -108,34 +141,11 @@ export const FavoritesPage = () => {
         onEndReached={() => useFavoriteStore.getState().fetchMore()}
         onEndReachedThreshold={0.4}
         ListHeaderComponent={ListHeader}
-        ListFooterComponent={
-          isLoadingMore ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color={theme.colors.primary} />
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={() => useFavoriteStore.getState().fetch()}
-            tintColor={theme.colors.primary}
-          />
-        }
+        ListFooterComponent={ListFooter}
+        refreshControl={refreshControl}
         maxToRenderPerBatch={8}
         windowSize={7}
       />
-    </View>
-  );
-};
-
-const ListHeader = () => {
-  const { t } = useTranslation();
-
-  // Корень таба: без back-кнопки, крупный заголовок в стиле современных шопов
-  return (
-    <View style={styles.header}>
-      <Text style={styles.title}>{t('favorite.title')}</Text>
     </View>
   );
 };
