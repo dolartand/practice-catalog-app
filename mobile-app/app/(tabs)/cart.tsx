@@ -6,7 +6,7 @@ import { CartPage } from '@pages/cart';
 
 export default function CartTabScreen() {
     const router = useRouter();
-    const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+    const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
 
     if (!isAuthenticated) {
         return <AuthPlaceholder onLogin={() => router.push(ROUTES.auth.login)} />;

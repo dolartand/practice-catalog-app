@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { cartApi } from '../entities/cart/api/cart.api';
-import type { Cart, CartItem } from '../entities/cart/model/types';
+import type { CartItem } from '../entities/cart/model/types';
 
 function recomputeTotal(items: CartItem[]): number {
   return items.filter((item) => !item.unavailable).reduce((sum, item) => sum + item.totalCents, 0);
@@ -12,9 +12,6 @@ interface CartState {
   isLoading: boolean;
   error: string | null;
   pendingItemIds: Set<string>;
-
-  itemCount: number;
-  hasUnavailableItems: boolean;
 
   fetch: () => Promise<void>;
   addItem: (skuId: string, quantity: number) => Promise<void>;
@@ -29,14 +26,6 @@ export const useCartStore = create<CartState>((set, get) => ({
   isLoading: false,
   error: null,
   pendingItemIds: new Set(),
-
-  get itemCount() {
-    return get().items.reduce((sum, item) => sum + item.quantity, 0);
-  },
-
-  get hasUnavailableItems() {
-    return get().items.some((item) => item.unavailable);
-  },
 
   fetch: async () => {
     set({ isLoading: true, error: null });

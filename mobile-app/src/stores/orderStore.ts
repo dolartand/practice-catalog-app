@@ -7,8 +7,6 @@ import { hasNextPage } from '@shared/lib/pagination';
 export type { Order, OrderStatus };
 export { ORDER_STATUS_COLOR_KEY } from '../entities/order/lib/order-status';
 
-const ACTIVE_STATUSES: OrderStatus[] = ['NEW', 'CONFIRMED'];
-
 interface OrderState {
   items: Order[];
   page: number;
@@ -18,10 +16,6 @@ interface OrderState {
   isLoadingMore: boolean;
   error: string | null;
   byId: Map<string, Order>;
-
-  activeOrders: Order[];
-  pastOrders: Order[];
-  hasMore: boolean;
 
   fetchList: () => Promise<void>;
   fetchMore: () => Promise<void>;
@@ -47,18 +41,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   error: null,
   byId: new Map(),
 
-  get activeOrders() {
-    return get().items.filter((order) => ACTIVE_STATUSES.includes(order.status));
-  },
-
-  get pastOrders() {
-    return get().items.filter((order) => !ACTIVE_STATUSES.includes(order.status));
-  },
-
-  get hasMore() {
-    return hasNextPage({ page: get().page, totalPages: get().totalPages });
-  },
-
   fetchList: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -76,12 +58,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   fetchMore: async () => {
-    const { hasMore, isLoadingMore } = get();
-    if (!hasMore || isLoadingMore) return;
-
+    const { page, totalPages, isLoadingMore } = get();
+    if (!hasNextPage({ page, totalPages }) || isLoadingMore) return;
     set({ isLoadingMore: true });
     try {
-      const nextPage = get().page + 1;
+      const nextPage = page + 1;
       const result = await orderApi.getList({ page: nextPage, size: get().size });
       set({
         items: [...get().items, ...result.items],

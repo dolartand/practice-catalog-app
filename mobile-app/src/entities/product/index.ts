@@ -13,5 +13,5 @@ export { ProductStoresProvider, useProductStore, useProductStoreSelector } from 
 export { productApi } from './api/product.api';
 export { ProductCard } from './ui/ProductCard';
 export { ProductCardSkeleton } from './ui/ProductCardSkeleton';
-export { PRODUCT_TYPES } from './model/product-types';
+export { PRODUCT_TYPES, PRODUCT_TYPE_LABEL_KEYS } from './model/product-types';
 export { resolveSkuPrice } from './lib/resolve-sku-price';

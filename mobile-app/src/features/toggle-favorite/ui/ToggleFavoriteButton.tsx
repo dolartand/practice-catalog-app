@@ -20,7 +20,7 @@ export const ToggleFavoriteButton = ({ productId, size = 34 }: ToggleFavoriteBut
   const { t } = useTranslation();
   const isActive = useFavoriteStore((s) => s.has(productId));
   const isPending = useFavoriteStore((s) => s.isPending(productId));
-  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
 
   const pressScale = useSharedValue(1);
   // Пик «пружинки» в середине переключения 0↔1; на монтировании без анимации

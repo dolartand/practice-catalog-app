@@ -3,7 +3,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useFavoriteStore } from '../stores/favoriteStore';
 
 export function useFavoritesSessionSync() {
-  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
   const user = useSessionStore((s) => s.user);
   const init = useFavoriteStore((s) => s.init);
   const reset = useFavoriteStore((s) => s.reset);

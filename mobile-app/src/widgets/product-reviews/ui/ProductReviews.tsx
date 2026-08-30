@@ -13,7 +13,7 @@ import type { PublicReview, MyReview } from '@stores/reviewStore';
 import { DeleteReviewButton } from '@features/delete-review';
 import { EditReviewForm } from '@features/edit-review';
 import { WriteReviewForm } from '@features/write-review';
-import { showToast } from '@shared/lib';
+import { showToast, hasNextPage } from '@shared/lib';
 
 
 export const ProductReviews = ({ product }: { product: Product }) => {
@@ -24,11 +24,11 @@ export const ProductReviews = ({ product }: { product: Product }) => {
   const isLoadingMore = useReviewStore((s) => s.isLoadingMore);
   const error = useReviewStore((s) => s.error);
   const items = useReviewStore((s) => s.items);
-  const hasMore = useReviewStore((s) => s.hasMore);
+  const hasMore = useReviewStore((s) => hasNextPage({ page: s.page, totalPages: s.totalPages }));
   const productId = useReviewStore((s) => s.productId);
   const total = useReviewStore((s) => s.total);
   const myReview = useReviewStore((s) => s.getMyReview(product.id));
-  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
 
   useEffect(() => {
     useReviewStore.getState().fetch(product.id);

@@ -31,11 +31,7 @@ interface SessionState {
   changePassword: (payload: ChangePasswordRequest) => Promise<void>;
 }
 
-interface SessionStore extends SessionState {
-  isAuthenticated: boolean;
-}
-
-export const useSessionStore = create<SessionStore>()(
+export const useSessionStore = create<SessionState>()(
   persist(
     (set, get) => ({
       status: 'restoring' as SessionStatus,
@@ -152,10 +148,6 @@ export const useSessionStore = create<SessionStore>()(
       changePassword: async (payload: ChangePasswordRequest) => {
         await sessionApi.changePassword(payload);
         await get().forceLogout();
-      },
-
-      get isAuthenticated() {
-        return get().status === 'authenticated';
       },
     }),
     {

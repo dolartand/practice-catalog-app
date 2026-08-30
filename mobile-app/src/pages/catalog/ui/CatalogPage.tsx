@@ -23,7 +23,7 @@ export const CatalogPage = () => {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const list = useProductStore((s) => s.list);
+  const list = useProductStore((s) => s.items);
   const isLoading = useProductStore((s) => s.isLoading);
   const isLoadingMore = useProductStore((s) => s.isLoadingMore);
   const error = useProductStore((s) => s.error);

@@ -3,7 +3,7 @@ import { useSessionStore } from '@stores/sessionStore';
 import { useCartStore } from '@stores/cartStore';
 
 export function useCartSessionSync() {
-  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
   const fetch = useCartStore((s) => s.fetch);
   const reset = useCartStore((s) => s.reset);
 

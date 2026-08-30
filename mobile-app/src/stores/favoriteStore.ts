@@ -34,9 +34,6 @@ interface FavoriteState {
   cacheKey: string | null;
   isSyncing: boolean;
 
-  hasMore: boolean;
-  count: number;
-
   has: (productId: string) => boolean;
   isPending: (productId: string) => boolean;
 
@@ -95,14 +92,6 @@ export const useFavoriteStore = create<FavoriteState>()(
       cacheKey: null,
       isSyncing: false,
 
-      get hasMore() {
-        return hasNextPage({ page: get().page, totalPages: get().totalPages });
-      },
-
-      get count() {
-        return get().favoriteIds.size;
-      },
-
       has: (productId: string) => get().favoriteIds.has(productId),
 
       isPending: (productId: string) => get().pendingIds.has(productId),
@@ -132,12 +121,12 @@ export const useFavoriteStore = create<FavoriteState>()(
       },
 
       fetchMore: async () => {
-        const { hasMore, isLoadingMore } = get();
-        if (!hasMore || isLoadingMore) return;
+        const { page, totalPages, isLoadingMore } = get();
+        if (!hasNextPage({ page, totalPages }) || isLoadingMore) return;
 
         set({ isLoadingMore: true });
         try {
-          const nextPage = get().page + 1;
+          const nextPage = page + 1;
           const result = await favoriteApi.getList({ page: nextPage, size: LIST_PAGE_SIZE });
           set({
             items: [...get().items, ...result.items],

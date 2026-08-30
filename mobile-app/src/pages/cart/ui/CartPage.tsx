@@ -25,7 +25,7 @@ export const CartPage = () => {
   const items = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
   const totalCents = useCartStore((s) => s.totalCents);
-  const hasUnavailableItems = useCartStore((s) => s.hasUnavailableItems);
+  const hasUnavailableItems = useCartStore((s) => s.items.some((item) => item.unavailable));
   const pendingItemIds = useCartStore((s) => s.pendingItemIds);
 
   useEffect(() => {

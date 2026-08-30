@@ -19,9 +19,6 @@ interface ProductState {
   lastParams: ProductListParams;
   byId: Map<string, Product>;
 
-  list: ProductListItem[];
-  hasMore: boolean;
-
   fetchList: (params?: ProductListParams) => Promise<void>;
   fetchMore: () => Promise<void>;
   fetchOne: (id: string) => Promise<Product>;
@@ -41,14 +38,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
   lastParams: {},
   byId: new Map(),
 
-  get list() {
-    return get().items;
-  },
-
-  get hasMore() {
-    return hasNextPage({ page: get().page, totalPages: get().totalPages });
-  },
-
   fetchList: async (params: ProductListParams = {}) => {
     set({ isLoading: true, error: null, lastParams: params });
     try {
@@ -66,12 +55,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   fetchMore: async () => {
-    const { hasMore, isLoadingMore } = get();
-    if (!hasMore || isLoadingMore) return;
+    const { page, totalPages, isLoadingMore } = get();
+    if (!hasNextPage({ page, totalPages }) || isLoadingMore) return;
 
     set({ isLoadingMore: true });
     try {
-      const nextPage = get().page + 1;
+      const nextPage = page + 1;
       const result = await productApi.getList({ ...get().lastParams, page: nextPage, size: get().size });
       set({
         items: [...get().items, ...result.items],

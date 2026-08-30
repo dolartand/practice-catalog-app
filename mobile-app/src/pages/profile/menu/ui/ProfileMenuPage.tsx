@@ -28,7 +28,7 @@ export const ProfileMenuPage = () => {
   const insets = useSafeAreaInsets();
   const user = useSessionStore((s) => s.user);
   const fullName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : '';
-  const isAuthenticated = useSessionStore((s) => s.isAuthenticated);
+  const isAuthenticated = useSessionStore((s) => s.status === 'authenticated');
 
     const goToAccount = () =>
         router.push(isAuthenticated ? ROUTES.profile.edit : ROUTES.auth.login);

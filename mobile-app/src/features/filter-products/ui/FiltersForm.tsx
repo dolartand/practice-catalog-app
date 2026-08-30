@@ -4,7 +4,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { FiltersDraft } from '../model/filters-draft';
 
-import { PRODUCT_TYPES, type ProductSort } from '@entities/product';
+import { PRODUCT_TYPES, type ProductSort, PRODUCT_TYPE_LABEL_KEYS } from '@entities/product';
 import { SegmentedToggle } from '@shared/ui';
 
 
@@ -49,7 +49,7 @@ export function FiltersForm({ draft, onChange }: FiltersFormProps) {
             onPress={() => onChange({ type: null })}
           />
           {PRODUCT_TYPES.map((type) => (
-            <Chip key={type} label={type} isActive={draft.type === type} onPress={() => onChange({ type })} />
+            <Chip key={type} label={t(PRODUCT_TYPE_LABEL_KEYS[type])} isActive={draft.type === type} onPress={() => onChange({ type })} />
           ))}
         </View>
       </Section>

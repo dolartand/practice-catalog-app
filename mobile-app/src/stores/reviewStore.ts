@@ -45,8 +45,6 @@ interface ReviewState {
   mine: Map<string, MyReview>;
   cacheKey: string | null;
 
-  hasMore: boolean;
-
   getMyReview: (productId: string) => MyReview | undefined;
   hasMyReview: (productId: string) => boolean;
   isDeleting: (productId: string) => boolean;
@@ -108,10 +106,6 @@ export const useReviewStore = create<ReviewState>()(
       mine: new Map(),
       cacheKey: null,
 
-      get hasMore() {
-        return hasNextPage({ page: get().page, totalPages: get().totalPages });
-      },
-
       getMyReview: (productId: string) => get().mine.get(productId),
 
       hasMyReview: (productId: string) => get().mine.has(productId),
@@ -141,12 +135,12 @@ export const useReviewStore = create<ReviewState>()(
       },
 
       fetchMore: async () => {
-        const { productId, hasMore, isLoadingMore } = get();
-        if (!productId || !hasMore || isLoadingMore) return;
+        const { productId, page, totalPages, isLoadingMore } = get();
+        if (!productId || !hasNextPage({ page, totalPages }) || isLoadingMore) return;
 
         set({ isLoadingMore: true });
         try {
-          const nextPage = get().page + 1;
+          const nextPage = page + 1;
           const result = await reviewApi.getList(productId, { page: nextPage, size: get().size });
           set({
             items: [...get().items, ...result.items],

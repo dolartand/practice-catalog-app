@@ -10,8 +10,8 @@ import { useFavoriteStore } from '@stores/favoriteStore';
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
-  const cartCount = useCartStore((s) => s.itemCount);
-  const favoriteCount = useFavoriteStore((s) => s.count);
+  const cartCount = useCartStore((s) => s.items.reduce((sum, item) => sum + item.quantity, 0));
+  const favoriteCount = useFavoriteStore((s) => s.favoriteIds.size);
 
   return (
     <Tabs

@@ -16,7 +16,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useFavoriteStore } from '@stores/favoriteStore';
 import { ProductCard, ProductCardSkeleton } from '@entities/product';
 import { ToggleFavoriteButton } from '@features/toggle-favorite';
-import { ROUTES } from '@shared/lib';
+import { ROUTES, hasNextPage } from '@shared/lib';
 
 const SKELETON_COUNT = 4;
 
@@ -51,7 +51,7 @@ export const FavoritesPage = () => {
   const items = useFavoriteStore((s) => s.items);
   const isLoading = useFavoriteStore((s) => s.isLoading);
   const error = useFavoriteStore((s) => s.error);
-  const hasMore = useFavoriteStore((s) => s.hasMore);
+  const hasMore = useFavoriteStore((s) => hasNextPage({ page: s.page, totalPages: s.totalPages }));
 
   // Обновляем при каждом возврате на экран (после тогглов из каталога/детальной
   // сервер уже знает актуальный список) + при первом открытии

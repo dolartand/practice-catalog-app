@@ -1,5 +1,10 @@
 {
-  "tabs": { "catalog": "Каталог", "favorites": "Избранное", "cart": "Корзина", "profile": "Профиль" },
+  "tabs": {
+    "catalog": "Каталог",
+    "favorites": "Избранное",
+    "cart": "Корзина",
+    "profile": "Профиль"
+  },
   "settings": {
     "title": "Настройки",
     "language": "Язык",
@@ -51,7 +56,10 @@
   "common": {
     "retry": "Повторить",
     "loading": "Загрузка...",
-    "cancel": "Не отменять"
+    "cancel": "Не отменять",
+    "oops": "Упс!",
+    "not_found": "Страница не найдена",
+    "go_home": "Вернуться на главную"
   },
   "filters": {
     "price": "Цена, BYN",
@@ -97,7 +105,30 @@
     "unit_ml": "мл",
     "unit_g": "г",
     "reviews_count": "{{count}} отзыв",
-    "reviews_count_plural": "{{count}} отзывов"
+    "reviews_count_plural": "{{count}} отзывов",
+    "type_dish": "Блюдо",
+    "type_saucer": "Блюдце",
+    "type_coffee_service": "Кофейный сервиз",
+    "type_mug": "Кружка",
+    "type_pitcher": "Кувшин",
+    "type_tray": "Лоток",
+    "type_butter_dish": "Маслёнка",
+    "type_bowl": "Миска",
+    "type_set": "Набор",
+    "type_piala": "Пиала",
+    "type_item": "Предмет",
+    "type_spice_set": "Прибор для специй",
+    "type_salad_bowl": "Салатник",
+    "type_sugar_bowl": "Сахарница",
+    "type_herring_dish": "Селедочница",
+    "type_glass": "Стакан",
+    "type_dinner_service": "Столовый сервиз",
+    "type_souvenir": "Сувенир",
+    "type_plate": "Тарелка",
+    "type_tea_pair": "Чайная пара",
+    "type_tea_service": "Чайный сервиз",
+    "type_cup": "Чашка",
+    "type_tiered_stand": "Этажерка"
   },
   "checkout": {
     "title": "Оформление заказа",
@@ -149,7 +180,7 @@
     "title": "О заводе",
     "body": "Фарфоровый завод — предприятие с многолетней историей: мы производим сервизы, чайные пары, чашки, вазы и сувениры из высококачественного фарфора. Каждое изделие проходит ручную роспись и контроль качества.\n\nВ приложении представлен полный каталог продукции: актуальные цены, наличие на складе и быстрое оформление заказа с доставкой.",
     "address_label": "Адрес",
-    "address_value": "г. Минск, ул. Заводская, 1",
+    "address_value": "г. Добруш, ул. Заводская, 1",
     "phone_label": "Телефон",
     "phone_value": "+375 17 200-00-00",
     "email_label": "Email",
@@ -196,7 +227,6 @@
     "network": {
       "title": "Нет соединения",
       "detail": "Проверьте подключение к интернету и повторите попытку"
-      
     },
     "unknown": {
       "title": "Что-то пошло не так",
